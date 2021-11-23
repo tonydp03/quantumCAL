@@ -40,18 +40,18 @@ if __name__ == "__main__":
     # Set directory
     data_dir = args.dir
 
-    # Import the dataset
-    Dataset1 = pd.read_csv(data_dir+ "diphoton.csv")
+    # Import the data for Grover
+    grover_data = pd.read_csv(data_dir+ "diphoton.csv")
 
-    allID = Dataset1['lcID'].values
-    allEta = Dataset1['lcEta'].values
-    allPhi = Dataset1['lcPhi'].values
-    allLayer = Dataset1['lcLayer'].values
-    allX = Dataset1['lcX'].values
-    allY = Dataset1['lcY'].values
-    allZ = Dataset1['lcZ'].values
+    allID = grover_data['lcID'].values
+    allEta = grover_data['lcEta'].values
+    allPhi = grover_data['lcPhi'].values
+    allLayer = grover_data['lcLayer'].values
+    allX = grover_data['lcX'].values
+    allY = grover_data['lcY'].values
+    allZ = grover_data['lcZ'].values
 
-    allTracks = Dataset1['lcToTrack1'].values
+    allTracks = grover_data['lcToTrack1'].values
 
     # Set the kind of coordinates to use
     CoordUsed = 'pseudo'
@@ -60,7 +60,7 @@ if __name__ == "__main__":
     gridThreshold = 5  #10
     distThreshold = 3.5
 
-    # Choose maximum dimension of dataset to be fed Grover
+    # Choose maximum dimension of grover_data to be fed Grover
     grover_size = [7,8,4]
 
     #### Can add small padding
