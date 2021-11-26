@@ -4,7 +4,10 @@ import uproot as uproot
 import pandas as pd
 
 # This only works on CERN's machines
-datafile = uproot.open('/eos/cms/store/user/bmaier/hgcal/hue_hackathon/samples_v1/test/diphoton/diphoton_merged_test.root')
+#datafile = uproot.open('/eos/cms/store/user/bmaier/hgcal/hue_hackathon/samples_v1/test/diphoton/diphoton_merged_test.root')
+
+#file with clue3D seeds
+datafile = uproot.open('/eos/cms/store/group/dpg_hgcal/comm_hgcal/bmaier/clue3d/v0_clue3d/diphoton/postproc_seed_1999.root')
 
 events = datafile['lCToTSTsAssoc/lCTo3simTS_tree']
 
@@ -48,3 +51,4 @@ dataframe = np.vstack((id,eta,phi,pos_x,pos_y,pos_z,layer,trueTrack1,trueTrack2,
 df = pd.DataFrame(dataframe,columns=variables)
 
 df.to_csv('diphoton.csv')
+
