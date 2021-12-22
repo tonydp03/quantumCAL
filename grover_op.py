@@ -182,8 +182,8 @@ def points_layer_collection(all_points, dataset, add_inactive = True, input_form
     all_Z_indices = dataset[3]
     
     #Dimensions of the system:
-    DimX, DimY = n_qubits(len(all_X),len(all_Y))
-    DimZ = len(all_Z)
+    # DimX, DimY = n_qubits(len(all_X),len(all_Y))
+    # DimZ = len(all_Z)
     
     #Find all layers
     layers_0 = []
@@ -194,10 +194,11 @@ def points_layer_collection(all_points, dataset, add_inactive = True, input_form
     layers_1.sort()
         
     #Add inactive points if desired
+    # all_points_out = all_points.tolist().copy()
     all_points_out = all_points.copy()
     if add_inactive:
-        for index in all_Z_indices:
-            all_points_out.append(np.array([math.nan, math.nan, all_Z[int(index)], index]))
+        for index in range(len(all_Z_indices)):
+            all_points_out.append(np.array([math.nan, math.nan, all_Z[int(index)], all_Z_indices[index]]))
             
     #Use "output_form" coordinates:
     if output_form == "dec":
@@ -665,6 +666,9 @@ if __name__=="__main__":
     all_Z_indices = [i for i in range(Nz)]
 
     dataset = [all_X, all_Y, all_Z, all_Z_indices]
+    print('\n\n*************************************\n\n')
+    print(dataset)
+    print('\n\n*************************************\n\n')
 
     # Randomly pick some points in these data:
     point_list_cart = []
@@ -677,6 +681,9 @@ if __name__=="__main__":
 
     # Use the function "points_layer_collection" for splitting the point into the different layers:
     all_points_ordered = points_layer_collection(point_list_cart, dataset)
+    print('\n\n*************************************\n\n')
+    print(all_points_ordered)
+    print('\n\n*************************************\n\n')
 
     #CLASSICAL
     # Classically find all points satisfying the threshold criteria:
