@@ -198,6 +198,7 @@ def full_qubit_to_dec(in_vec, dataset, form = "dec"):
     all_X = dataset[0]
     all_Y = dataset[1]
     all_Z = dataset[2]
+    all_Z_index = dataset[3]
     
     # Finding dimensions:
     Nx = len(all_X)
@@ -223,9 +224,9 @@ def full_qubit_to_dec(in_vec, dataset, form = "dec"):
     
     # Output if requested in "dec" form
     if form == "dec":
-        return [np.array([dec_x[i] ,dec_y[i] ,all_Z[i] , i]) for i in range(len(all_Z))]
+        return [np.array([dec_x[i] ,dec_y[i] ,all_Z[i] , all_Z_index[i]]) for i in range(len(all_Z))]
     elif form == "cart":
-        dec_fin = [[dec_x[i] ,dec_y[i] ,all_Z[i] , i] for i in range(len(all_Z))]
+        dec_fin = [[dec_x[i] ,dec_y[i] ,all_Z[i] , all_Z_index[i]] for i in range(len(all_Z))]
         return [dec_to_cart(dec_fin[i], dataset) for i in range(len(all_Z))]
     else:
         print("Which form do you want the output in the function full_qubit_to_dec?")
