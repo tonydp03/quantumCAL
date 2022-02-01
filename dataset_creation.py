@@ -23,6 +23,7 @@ pos_x = np.array(ak.flatten(events['pos_x'].array(entry_stop=nEvents)))
 pos_y = np.array(ak.flatten(events['pos_y'].array(entry_stop=nEvents)))
 pos_z = np.array(ak.flatten(events['pos_z'].array(entry_stop=nEvents)))
 layer = np.array(ak.flatten(events['layer'].array(entry_stop=nEvents)))
+energy = np.array(ak.flatten(events['energy'].array(entry_stop=nEvents)))
 simTst_idx = np.array(ak.flatten(events['simTst_idx'].array(entry_stop=nEvents)))
 
 clue3DHigh = events['isSeedCLUE3DHigh'].array(entry_stop=nEvents)
@@ -45,9 +46,9 @@ trueTrack1 = np.array(trueTrack1)
 trueTrack2 = np.array(trueTrack2)
 trueTrack3 = np.array(trueTrack3)
 
-variables = ["lcID", "lcEta", "lcPhi", "lcX", "lcY", "lcZ", "lcLayer", "lcToTrack1", "lcToTrack2", "lcToTrack3", 'isSeed']
+variables = ["lcID", "lcEta", "lcPhi", "lcX", "lcY", "lcZ", "lcLayer", "lcEnergy", "lcToTrack1", "lcToTrack2", "lcToTrack3", 'isSeed']
 
-dataframe = np.vstack((id,eta,phi,pos_x,pos_y,pos_z,layer,trueTrack1,trueTrack2,trueTrack3, isSeed_idx)).T
+dataframe = np.vstack((id,eta,phi,pos_x,pos_y,pos_z,layer, energy, trueTrack1,trueTrack2,trueTrack3, isSeed_idx)).T
 df = pd.DataFrame(dataframe,columns=variables)
 
 df.to_csv('diphoton.csv')

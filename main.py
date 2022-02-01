@@ -17,19 +17,21 @@ def createGrid(x,y,z):
     for i in range(len(x)):
         for j in range(len(y)):
             for k in range(len(z)):
-                gridstructure.append(np.array([x[i],y[j],z[k],k,0]))
+                gridstructure.append(np.array([x[i],y[j],z[k],k,0,[]], dtype=object))
 
     gridstructure = np.array(gridstructure)
     return gridstructure
 
 
-def fillTheGrid(gridstructure, x, y, z, lxy, lz):
+def fillTheGrid(gridstructure, x, y, z, layer, energy, lxy, lz):
     for i in range(len(x)):
-        gridstructure[np.where((gridstructure[:,0]+lxy/2>x[i]) & (gridstructure[:,0]-lxy/2<x[i])
+        condition_found = np.where((gridstructure[:,0]+lxy/2>x[i]) & (gridstructure[:,0]-lxy/2<x[i])
                         & (gridstructure[:,1]+lxy/2>y[i]) & (gridstructure[:,1]-lxy/2<y[i]) 
-                        & (gridstructure[:,2]+lz>z[i]) & (gridstructure[:,2]-lz<z[i])), 4] += 1
-    return gridstructure
+                        & (gridstructure[:,2]+lz>z[i]) & (gridstructure[:,2]-lz<z[i]))
+        gridstructure[condition_found, 4] += 1
+        gridstructure[condition_found, 5][0][0].append(np.array([x[i],y[i],z[i],layer[i],energy[i]]))
 
+    return gridstructure
 
 if __name__ == "__main__":
 
@@ -50,7 +52,7 @@ if __name__ == "__main__":
     allX = grover_data['lcX'].values
     allY = grover_data['lcY'].values
     allZ = grover_data['lcZ'].values
-
+    allEnergies = grover_data['lcEnergy'].values
     allTracks = grover_data['lcToTrack1'].values
 
     # Set the kind of coordinates to use
@@ -127,14 +129,19 @@ if __name__ == "__main__":
         cubesY.append(minY+tileL/2 + i*tileL)
 
 
-    # Now create the grid with each cube represented by a list (x,y,z,0) where 0 is the cardinality (# of points in the cube)
+    # Now create the grid with each cube represented by a list (x,y,z,k,0) where k is the layer number and 0 is the cardinality (# of points in the cube)
+    print('Creating the grid...')
     gridStructure = createGrid(cubesX, cubesY, cubesZ)
+    print('Grid created!')
 
     ##### gridStructure elements can be accessed easily: gridStructure[0,2] gives access to z (2) of the first cube (0)
     ##### The first element indicates the cubeID, the second corresponds to the feature: 0 for x, 1 for y, 2 for z, 3 for layer and 4 for cardinality
 
     # Fill the grid 
-    fillTheGrid(gridStructure, allX, allY, allZ, tileL, zTolerance)
+    print('Filling the grid...')
+    # This is super slow! Maybe we can run it once and save the grid in a csv file
+    fillTheGrid(gridStructure, allX, allY, allZ, allLayer, allEnergies, tileL, zTolerance)
+    print('Grid filled!')
 
     # Choosing thresholds:
     thresholds = [gridThreshold,gridThreshold,gridThreshold,gridThreshold]
@@ -182,9 +189,25 @@ if __name__ == "__main__":
                 Tracksters_found_quantumly = [] # this is necessary otherwise dists_quantum at the end of the search will fail if no Trackster is found
 
                 #First Grover search:
-                tmp = [Grover(thresholds, all_points_ordered, dataset, Printing = True)]
+                tmp = [Grover(thresholds, all_points_ordered, dataset, Printing = False)]
+                print('Tmp: ', tmp)
                 dist_tmp = f_dist_t(tmp[0], dataset, "dec")
+
                 if (len(tmp) != 0) and ((dist_tmp[0] < thresholds[0]) or (dist_tmp[1] < thresholds[1]) or (dist_tmp[2] < thresholds[2]) or (dist_tmp[3] < thresholds[3])):
+                    lc_inTrk = []
+                    for lc in tmp[0]:
+                        # print(lc[0])
+                        # print(len(gridTest[0]))
+                        if(lc[0]<len(gridTest[0])): # the LC is valid (not hole)
+                            lc_inTrk.append(gridTest[lc[0],lc[1],lc[2]])
+                 
+                    ##### HERE GOES THE ENERGY CONDITION ###### 
+                    # if condition satisfied, remove lc_inTrk from gridTest (counter-- and lc corrisponding to the energy used during check)
+                    # and append tmp to the "good" trackster list
+
+                    # if condition not satisfied, dump trackster tmp
+                    
+                    # This will become the trackster to dump
                     Tracksters_found_quantumly = tmp
                     print('Tracksters found quantumly: ', tmp)
                 else:
