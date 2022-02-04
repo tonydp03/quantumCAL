@@ -63,7 +63,7 @@ if __name__ == "__main__":
     distThreshold = 3.5
 
     # Choose maximum dimension of grover_data to be fed Grover
-    grover_size = [7,8,4]
+    grover_size = [3,4,4]
 
     #### Can add small padding
     minX = min(allX)
@@ -130,18 +130,20 @@ if __name__ == "__main__":
 
 
     # Now create the grid with each cube represented by a list (x,y,z,k,0) where k is the layer number and 0 is the cardinality (# of points in the cube)
-    print('Creating the grid...')
-    gridStructure = createGrid(cubesX, cubesY, cubesZ)
-    print('Grid created!')
+    # print('Creating the grid...')
+    # gridStructure = createGrid(cubesX, cubesY, cubesZ)
+    # print('Grid created!')
 
     ##### gridStructure elements can be accessed easily: gridStructure[0,2] gives access to z (2) of the first cube (0)
     ##### The first element indicates the cubeID, the second corresponds to the feature: 0 for x, 1 for y, 2 for z, 3 for layer and 4 for cardinality
 
     # Fill the grid 
-    print('Filling the grid...')
+    # print('Filling the grid...')
     # This is super slow! Maybe we can run it once and save the grid in a csv file
-    fillTheGrid(gridStructure, allX, allY, allZ, allLayer, allEnergies, tileL, zTolerance)
-    print('Grid filled!')
+    # fillTheGrid(gridStructure, allX, allY, allZ, allLayer, allEnergies, tileL, zTolerance)
+    # print('Grid filled!')
+
+    gridStructure = np.load('grid.npy', allow_pickle=True)
 
     # Choosing thresholds:
     thresholds = [gridThreshold,gridThreshold,gridThreshold,gridThreshold]
@@ -149,12 +151,14 @@ if __name__ == "__main__":
     for i in range(int(len(cubesX)/grover_size[0])):
         for j in range(int(len(cubesY)/grover_size[1])):
             for k in range(int(len(cubesZ)/grover_size[2])):
+                i,j,k = [1,13,4]
                 condition_indices = np.where((gridStructure[:,0]>=cubesX[i*grover_size[0]]) & (gridStructure[:,0]<=cubesX[(i+1)*grover_size[0]-1]) 
                                         & (gridStructure[:,1]>=cubesY[j*grover_size[1]]) & (gridStructure[:,1]<=cubesY[(j+1)*grover_size[1]-1]) 
                                         & (gridStructure[:,2]>=cubesZ[k*grover_size[2]]) & (gridStructure[:,2]<=cubesZ[(k+1)*grover_size[2]-1]))
 
                 gridTest = gridStructure[condition_indices]
-                
+                # print('**** GRID TEST***\n', gridTest)
+
                 all_X = np.unique(gridTest[:,0])
                 all_Y = np.unique(gridTest[:,1])
                 all_Z = np.unique(gridTest[:,2])
@@ -189,7 +193,7 @@ if __name__ == "__main__":
                 Tracksters_found_quantumly = [] # this is necessary otherwise dists_quantum at the end of the search will fail if no Trackster is found
 
                 #First Grover search:
-                tmp = [Grover(thresholds, all_points_ordered, dataset, Printing = False)]
+                tmp = [Grover(thresholds, all_points_ordered, dataset, Printing = True)]
                 print('Tmp: ', tmp)
                 dist_tmp = f_dist_t(tmp[0], dataset, "dec")
 
@@ -199,7 +203,14 @@ if __name__ == "__main__":
                         # print(lc[0])
                         # print(len(gridTest[0]))
                         if(lc[0]<len(gridTest[0])): # the LC is valid (not hole)
-                            lc_inTrk.append(gridTest[lc[0],lc[1],lc[2]])
+                            coordinates_lc = dec_to_cart(lc,dataset)
+                            # print('****** COORDINATES ***')
+                            # print(coordinates_lc)
+                            condition_indices_lc = np.where((gridTest[:,0]==coordinates_lc[0]) & (gridTest[:,1]==coordinates_lc[1]) & (gridTest[:,2]==coordinates_lc[2]))
+                            # print(condition_indices_lc)
+                            # print('****** GRID WITH COND IND ***')
+                            # print(gridTest[condition_indices_lc])
+                            lc_inTrk.append(gridTest[condition_indices_lc,-1])
                  
                     ##### HERE GOES THE ENERGY CONDITION ###### 
                     # if condition satisfied, remove lc_inTrk from gridTest (counter-- and lc corrisponding to the energy used during check)
@@ -228,6 +239,23 @@ if __name__ == "__main__":
                     #### Se cardinalità > 1, non rimuovere il punto ma ridurre di 1 la cardinalità.
                     print("distance found at this iteration:", dist_tmp)
                     if (len(tmp) != 0) and ((dist_tmp[0] < thresholds[0]) or (dist_tmp[1] < thresholds[1]) or (dist_tmp[2] < thresholds[2]) or (dist_tmp[3] < thresholds[3])):
+                        lc_inTrk = []
+                        for lc in tmp[0]:
+                            # print(lc[0])
+                            # print(len(gridTest[0]))
+                            if(lc[0]<len(gridTest[0])): # the LC is valid (not hole)
+                                coordinates_lc = dec_to_cart(lc,dataset)
+                                # print('****** COORDINATES ***')
+                                # print(coordinates_lc)
+                                condition_indices_lc = np.where((gridTest[:,0]==coordinates_lc[0]) & (gridTest[:,1]==coordinates_lc[1]) & (gridTest[:,2]==coordinates_lc[2]))
+                                # print(condition_indices_lc)
+                                # print('****** GRID WITH COND IND ***')
+                                # print(gridTest[condition_indices_lc])
+                                lc_inTrk.append(gridTest[condition_indices_lc,-1])
+
+                        ##### HERE GOES THE ENERGY CONDITION ######
+                        #  
+                        # This will become the trackster to dump
                         Tracksters_found_quantumly = Tracksters_found_quantumly + tmp
                         print('Tracksters found quantumly: ', tmp)
                     else:
@@ -235,3 +263,6 @@ if __name__ == "__main__":
                         
                 dists_quantum = [f_dist_t(track, dataset, "dec") for track in Tracksters_found_quantumly]
                 print(dists_quantum)
+                break
+            break
+        break
