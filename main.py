@@ -10,6 +10,8 @@ import pandas as pd
 import math
 from grover_op import *
 import argparse
+from plot_utils import *
+import matplotlib.pyplot as plt
 
 
 def createGrid(x,y,z):
@@ -147,17 +149,21 @@ if __name__ == "__main__":
 
     # Choosing thresholds:
     thresholds = [gridThreshold,gridThreshold,gridThreshold,gridThreshold]
-
+    xs = list()
+    ys = list()
+    zs = list()
     for i in range(int(len(cubesX)/grover_size[0])):
         for j in range(int(len(cubesY)/grover_size[1])):
             for k in range(int(len(cubesZ)/grover_size[2])):
-                i,j,k = [1,13,4]
+                # i,j,k = [i,13,k]
+                print(f" Shape grid structur {gridStructure.shape} {type(gridStructure)}")
                 condition_indices = np.where((gridStructure[:,0]>=cubesX[i*grover_size[0]]) & (gridStructure[:,0]<=cubesX[(i+1)*grover_size[0]-1]) 
                                         & (gridStructure[:,1]>=cubesY[j*grover_size[1]]) & (gridStructure[:,1]<=cubesY[(j+1)*grover_size[1]-1]) 
                                         & (gridStructure[:,2]>=cubesZ[k*grover_size[2]]) & (gridStructure[:,2]<=cubesZ[(k+1)*grover_size[2]-1]))
 
                 gridTest = gridStructure[condition_indices]
-                # print('**** GRID TEST***\n', gridTest)
+                print('**** GRID TEST***\n', gridTest.shape, type(gridTest))
+                print(f"gridStructure 6 {type(gridStructure[0,5])} {gridStructure[0,5]}")
 
                 all_X = np.unique(gridTest[:,0])
                 all_Y = np.unique(gridTest[:,1])
@@ -194,11 +200,13 @@ if __name__ == "__main__":
 
                 #First Grover search:
                 tmp = [Grover(thresholds, all_points_ordered, dataset, Printing = True)]
+                print(f"tmp {tmp}")
                 print('Tmp: ', tmp)
                 dist_tmp = f_dist_t(tmp[0], dataset, "dec")
 
                 if (len(tmp) != 0) and ((dist_tmp[0] < thresholds[0]) or (dist_tmp[1] < thresholds[1]) or (dist_tmp[2] < thresholds[2]) or (dist_tmp[3] < thresholds[3])):
                     lc_inTrk = []
+                    
                     for lc in tmp[0]:
                         # print(lc[0])
                         # print(len(gridTest[0]))
@@ -208,9 +216,23 @@ if __name__ == "__main__":
                             # print(coordinates_lc)
                             condition_indices_lc = np.where((gridTest[:,0]==coordinates_lc[0]) & (gridTest[:,1]==coordinates_lc[1]) & (gridTest[:,2]==coordinates_lc[2]))
                             # print(condition_indices_lc)
-                            # print('****** GRID WITH COND IND ***')
+                            print('****** GRID WITH COND IND ***')
                             # print(gridTest[condition_indices_lc])
-                            lc_inTrk.append(gridTest[condition_indices_lc,-1])
+                            lc_crds = gridTest[condition_indices_lc,-1]
+                            lc_coords_tmp = gridTest[condition_indices_lc,-1][0]
+                            print(f"1 {gridTest[condition_indices_lc,-1]}")
+                            print(gridTest[condition_indices_lc,-1][0])
+                            if(len(lc_coords_tmp) > 0):                                
+                                print(f"2 {gridTest[condition_indices_lc,-1][0][0]}")
+                                lc_inTrk.append(gridTest[condition_indices_lc,-1][0][0][0])
+
+                    print(f"lc_inTrk {lc_inTrk}")
+                    for i_trk, trk in enumerate(lc_inTrk):
+                        xs.append(trk[0])
+                        ys.append(trk[1])
+                        zs.append(trk[2])
+
+                    
                  
                     ##### HERE GOES THE ENERGY CONDITION ###### 
                     # if condition satisfied, remove lc_inTrk from gridTest (counter-- and lc corrisponding to the energy used during check)
@@ -238,8 +260,11 @@ if __name__ == "__main__":
                     #### (NB: non rimuovere i missing layers = punti in cui non ci sono LC, aventi x e y massime)
                     #### Se cardinalità > 1, non rimuovere il punto ma ridurre di 1 la cardinalità.
                     print("distance found at this iteration:", dist_tmp)
+                    print(len(tmp))
+                    print(thresholds)
                     if (len(tmp) != 0) and ((dist_tmp[0] < thresholds[0]) or (dist_tmp[1] < thresholds[1]) or (dist_tmp[2] < thresholds[2]) or (dist_tmp[3] < thresholds[3])):
                         lc_inTrk = []
+                        print("Here")
                         for lc in tmp[0]:
                             # print(lc[0])
                             # print(len(gridTest[0]))
@@ -252,6 +277,7 @@ if __name__ == "__main__":
                                 # print('****** GRID WITH COND IND ***')
                                 # print(gridTest[condition_indices_lc])
                                 lc_inTrk.append(gridTest[condition_indices_lc,-1])
+                        
 
                         ##### HERE GOES THE ENERGY CONDITION ######
                         #  
@@ -263,6 +289,4 @@ if __name__ == "__main__":
                         
                 dists_quantum = [f_dist_t(track, dataset, "dec") for track in Tracksters_found_quantumly]
                 print(dists_quantum)
-                break
-            break
-        break
+    plots3DwithProjection(xs,ys,zs)
