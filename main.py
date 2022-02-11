@@ -42,8 +42,8 @@ def trkIsValid(lcInTrackster, energyThrs, energyThrsCumulative):
     energyIndices = [[i for i in range(len(energies))] for energies in lcEnergy]
 
     allPaths = list(itertools.product(*energyIndices))
-    print(f'\n {lcEnergy}')
-    print(f'{allPaths}')
+    # print(f'\n {lcEnergy}')
+    # print(f'{allPaths}')
 
     totDiff = []
     for path in allPaths:
@@ -56,17 +56,20 @@ def trkIsValid(lcInTrackster, energyThrs, energyThrsCumulative):
                 else:
                     enDiff += float('inf')
             curr = lcEnergy[i][k]
-            print('CURR {} & DIFF {}'.format(curr,enDiff))
+            # print('CURR {} & DIFF {}'.format(curr,enDiff))
         totDiff.append(enDiff)
     # print('TotDiff {}'.format(totDiff))
     # print('MinTotDiff {}'.format(np.min(totDiff)))
     minTotDiff = np.min(totDiff)
     argMinTotDiff = np.where(totDiff == minTotDiff)[0][0]
     # print('ArgMinTotDiff {}'.format(argMinTotDiff))
+    minIndices = allPaths[argMinTotDiff] 
     if(minTotDiff > energyThrsCumulative):
         return []
     else:
-        return allPaths[argMinTotDiff]
+        # return allPaths[argMinTotDiff]
+        return [lcInTrackster[i][minIndices[i]] for i in range(len(minIndices))]
+        # return [lc_list[i] for lc_list in len(lcInTrackster)]
 
     # for i,e in enumerate(lcEnergy[:-1]):
     #     curr = e
@@ -201,11 +204,17 @@ if __name__ == "__main__":
     ys = list()
     zs = list()
 
+    LCs_columns = ['i', 'j', 'k', 'x', 'y', 'z', 'layer', 'energy', 'TrkId']
+    allTrksFoundQuantumly = pd.DataFrame([],columns=LCs_columns)
+    numTrk = 0
+    # allTrksFoundQuantumly.loc[len(allTrksFoundQuantumly)] = testList
+    # print(allTrksFoundQuantumly)
+
     for i in range(int(len(cubesX)/grover_size[0])):
         for j in range(int(len(cubesY)/grover_size[1])):
             for k in range(int(len(cubesZ)/grover_size[2])):
                 # i,j,k = [1,13,4]
-                i,j,k = [2,14,5] # also 2,14,2-3-4-6 --- for cubes with cardinality > 1
+                i,j = [2,14] # also 2,14,2-3-4-6 --- for cubes with cardinality > 1
                 # print(f" Shape grid structur {gridStructure.shape} {type(gridStructure)}")
                 condition_indices = np.where((gridStructure[:,0]>=cubesX[i*grover_size[0]]) & (gridStructure[:,0]<=cubesX[(i+1)*grover_size[0]-1]) 
                                         & (gridStructure[:,1]>=cubesY[j*grover_size[1]]) & (gridStructure[:,1]<=cubesY[(j+1)*grover_size[1]-1]) 
@@ -247,114 +256,134 @@ if __name__ == "__main__":
                 #QUANTUM
                 #Now do the same quantum.
                 keep_going = True
-                Tracksters_found_quantumly = [] # this is necessary otherwise dists_quantum at the end of the search will fail if no Trackster is found
+                Tracksters_to_remove = [] # this is necessary otherwise dists_quantum at the end of the search will fail if no Trackster is found
 
-                #First Grover search:
-                tmp = [Grover(thresholds, all_points_ordered, dataset, Printing = False)]
-                # print(f"tmp {tmp}")
-                # print('Tmp: ', tmp)
-                dist_tmp = f_dist_t(tmp[0], dataset, "dec")
+                # Grover search:
+                while(keep_going):
+                    # tmp = [Grover(thresholds, all_points_ordered, dataset, Printing = False)]
+                    print('\n ****** Iteration starts ****** \n')
+                    temp = gridTest[np.where(gridTest[:,4]!=0)]
+                    # print('TEMP ******** \n\n', temp)
+                    occupied_cubes = [np.array(k) for k in temp]
+                    print('OCCUPIED CUBES ******** \n', occupied_cubes)
 
-                if (len(tmp) != 0) and ((dist_tmp[0] < thresholds[0]) or (dist_tmp[1] < thresholds[1]) or (dist_tmp[2] < thresholds[2]) or (dist_tmp[3] < thresholds[3])):
-                    lc_inTrk = []
-                    
-                    print('TMP0 {}'.format(tmp[0]))
-                    for lc in tmp[0]:
-                        # print(lc[0])
-                        # print(len(gridTest[0]))
-                        if(lc[0]<len(gridTest[0])): # the LC is valid (not hole)
-                            coordinates_lc = dec_to_cart(lc,dataset)
-                            # print('****** COORDINATES ***')
-                            # print(coordinates_lc)
-                            condition_indices_lc = np.where((gridTest[:,0]==coordinates_lc[0]) & (gridTest[:,1]==coordinates_lc[1]) & (gridTest[:,2]==coordinates_lc[2]))
-                            # print(condition_indices_lc)
-                            print('****** GRID WITH COND IND ***')
-                            print(gridTest[condition_indices_lc])
-                            lc_crds = gridTest[condition_indices_lc,-1]
-                            lc_coords_tmp = gridTest[condition_indices_lc,-1][0]
-                            # print(f"1 {gridTest[condition_indices_lc,-1]}")
-                            # print(gridTest[condition_indices_lc,-1][0])
-                            if(len(lc_coords_tmp) > 0):                                
-                                # print(f"2 {gridTest[condition_indices_lc,-1][0][0]}")
-                                lc_inTrk.append(gridTest[condition_indices_lc,-1][0][0])
-                    print('LC_INTRK: {}'.format(lc_inTrk))
-                    checkTrk = trkIsValid(lc_inTrk, enThreshold, enThresholdCumulative)
-                    if(len(checkTrk)>0):
-                        ### TAKE LC WITH checkTrk indices from lc_inTrk and remove them from gridstruct (counter --)
-                        print(checkTrk)
-                    else:
-                        break
+                    # Use the function "points_layer_collection" for splitting the point into the different layers:
+                    all_points_ordered = points_layer_collection(occupied_cubes, dataset)
+                    print('ALL POINTS ORDERED ******** \n', all_points_ordered)
 
-
-                    # print(f"lc_inTrk {lc_inTrk}")
-                    # for i_trk, trk in enumerate(lc_inTrk):
-                    #     xs.append(trk[0])
-                    #     ys.append(trk[1])
-                    #     zs.append(trk[2])
-                                     
-                    ##### HERE GOES THE ENERGY CONDITION ###### 
-                    # if condition satisfied, remove lc_inTrk from gridTest (counter-- and lc corrisponding to the energy used during check)
-                    # and append tmp to the "good" trackster list
-
-                    # if condition not satisfied, dump trackster tmp
-                    
-                    # This will become the trackster to dump
-                    Tracksters_found_quantumly = tmp
-                    print('Tracksters found quantumly: ', tmp)
-                else:
-                    keep_going = False
-                print("distances of first point: ",dist_tmp)
-
-                #All subsequent Grover searches:
-                while keep_going:
-                    print("")
-                    print("new iteration")
-                    print("points found so far: ", len(Tracksters_found_quantumly))
-                    tmp = [Grover(thresholds, all_points_ordered, dataset, tracksters_to_be_removed = Tracksters_found_quantumly, Printing = False)]
+                    # Grover Iteration
+                    print("\n **** Grover call! ****")
+                    tmp = [Grover(thresholds, all_points_ordered, dataset, tracksters_to_be_removed = Tracksters_to_remove, Printing = False)]
+                    print("\n **** Grover found something! ****")
+                    # print('Tmp: ', tmp)
                     dist_tmp = f_dist_t(tmp[0], dataset, "dec")
-                    #### Valutazione trackster (considerazioni energetiche?): per ogni coppia di LC adiacenti, valuta se ABS(MAX[(E1-E2)/(E1+E2)])>EN_threshold
-                    #### ---> Scarta trackster e rimuovi da Grover (NB: se cardinalità > 1 utilizzare valore di E che minimizzi la formula sopra)
-                    #### Se ABS(MAX[(E1-E2)/(E1+E2)])<EN_threshold teniamo il trackster e rimuoviamo gli LC del trackster da all_points_ordered
-                    #### (NB: non rimuovere i missing layers = punti in cui non ci sono LC, aventi x e y massime)
-                    #### Se cardinalità > 1, non rimuovere il punto ma ridurre di 1 la cardinalità.
-                    print("distance found at this iteration:", dist_tmp)
-                    print(len(tmp))
-                    print(thresholds)
+
                     if (len(tmp) != 0) and ((dist_tmp[0] < thresholds[0]) or (dist_tmp[1] < thresholds[1]) or (dist_tmp[2] < thresholds[2]) or (dist_tmp[3] < thresholds[3])):
                         lc_inTrk = []
-                        print("Here")
+                        
+                        print('*** Distance conditions satisfied! ***')
+                        all_condition_indices_ls = list()
                         for lc in tmp[0]:
                             # print(lc[0])
                             # print(len(gridTest[0]))
-                            if(lc[0]<len(gridTest[0])): # the LC is valid (not hole)
-                                coordinates_lc = dec_to_cart(lc,dataset)
-                                # print('****** COORDINATES ***')
-                                # print(coordinates_lc)
+                            # if(lc[0]<len(gridTest[0])): # the LC is valid (not hole)
+                            coordinates_lc = dec_to_cart(lc,dataset)
+                            if (not np.isnan(coordinates_lc[0])): # the LC is valid (not hole)
                                 condition_indices_lc = np.where((gridTest[:,0]==coordinates_lc[0]) & (gridTest[:,1]==coordinates_lc[1]) & (gridTest[:,2]==coordinates_lc[2]))
+                                all_condition_indices_ls.append(condition_indices_lc)
                                 # print(condition_indices_lc)
-                                print('****** GRID WITH COND IND ***')
-                                print(gridTest[condition_indices_lc])
-                                lc_crds = gridTest[condition_indices_lc,-1]
-                                lc_coords_tmp = gridTest[condition_indices_lc,-1][0]
+                                # print('****** GRID WITH COND IND ***')
+                                # print(gridTest[condition_indices_lc])
+                                # lc_crds = gridTest[condition_indices_lc,-1]
+                                lc_coords_tmp = gridTest[condition_indices_lc,5][0]
                                 # print(f"1 {gridTest[condition_indices_lc,-1]}")
-                                # print(gridTest[condition_indices_lc,-1][0])
+                                print('GRID : ******** \n', gridTest[condition_indices_lc])
                                 if(len(lc_coords_tmp) > 0):                                
                                     # print(f"2 {gridTest[condition_indices_lc,-1][0][0]}")
                                     lc_inTrk.append(gridTest[condition_indices_lc,-1][0][0])
-                        
                         print('LC_INTRK: {}'.format(lc_inTrk))
-                        trkIsValid(lc_inTrk, enThreshold, enThresholdCumulative)
+                        ##### Energy condition ###### 
+                        # if condition satisfied, remove lc_inTrk from gridTest (counter-- and lc corrisponding to the energy used during check)
+                        # and append tmp to the dataframe of "good" tracksters
+                        checkTrk = trkIsValid(lc_inTrk, enThreshold, enThresholdCumulative)
+                        # print('LC_CHECKED_TRK: {}'.format(checkTrk))
+                        # print('gridTest : {}'.format(gridTest))
 
-                        ##### HERE GOES THE ENERGY CONDITION ######
-                        #  
-                        # This will become the trackster to dump
-                        Tracksters_found_quantumly = Tracksters_found_quantumly + tmp
-                        print('Tracksters found quantumly: ', tmp)
+                        if(len(checkTrk)>0):
+                            ('\n *** Energy conditions satisfied! ***')
+                            # remove LCs from gridstruct (counter --)
+                            for l, cond in enumerate(all_condition_indices_ls):
+                                print('gridTest (pre): {}'.format(gridTest[cond]))
+                                gridTest[cond,4]-=1
+                                print('LC TO REMOVE: {}'.format(checkTrk[l]))                                
+                                print('LC TO REMOVE: {}'.format(checkTrk[l]))
+                                gridTest[cond,5][0][0].remove(checkTrk[l])
+                                print('gridTest (post): {}'.format(gridTest[cond]))
+        
+                                #### Put into the dataframe
+                                LC_forDataFrame = [i,j,k, checkTrk[l][0], checkTrk[l][1], checkTrk[l][2],checkTrk[l][3], checkTrk[l][4], numTrk]
+                                allTrksFoundQuantumly.loc[len(allTrksFoundQuantumly)] = LC_forDataFrame
+                            numTrk += 1 # Increase counter of num Tracksters
+                            print('Tracksters found quantumly: \n', allTrksFoundQuantumly)
+                        else:
+                            # if condition not satisfied, dump trackster tmp
+                            Tracksters_to_remove.append(tmp)
+                            # print('Tracksters to remove: ', tmp)                    
                     else:
                         keep_going = False
-                break
+                        print('\n *** Distance conditions NOT satisfied! No more Tracksters to be found! ***')
+                    print("distances of last point: ",dist_tmp)
+
+                #All subsequent Grover searches:
+                # while keep_going:
+                #     print("")
+                #     print("new iteration")
+                #     print("points found so far: ", len(Tracksters_to_remove))
+                #     tmp = [Grover(thresholds, all_points_ordered, dataset, tracksters_to_be_removed = Tracksters_to_remove, Printing = False)]
+                #     dist_tmp = f_dist_t(tmp[0], dataset, "dec")
+                #     #### Valutazione trackster (considerazioni energetiche?): per ogni coppia di LC adiacenti, valuta se ABS(MAX[(E1-E2)/(E1+E2)])>EN_threshold
+                #     #### ---> Scarta trackster e rimuovi da Grover (NB: se cardinalità > 1 utilizzare valore di E che minimizzi la formula sopra)
+                #     #### Se ABS(MAX[(E1-E2)/(E1+E2)])<EN_threshold teniamo il trackster e rimuoviamo gli LC del trackster da all_points_ordered
+                #     #### (NB: non rimuovere i missing layers = punti in cui non ci sono LC, aventi x e y massime)
+                #     #### Se cardinalità > 1, non rimuovere il punto ma ridurre di 1 la cardinalità.
+                #     print("distance found at this iteration:", dist_tmp)
+                #     print(len(tmp))
+                #     print(thresholds)
+                #     if (len(tmp) != 0) and ((dist_tmp[0] < thresholds[0]) or (dist_tmp[1] < thresholds[1]) or (dist_tmp[2] < thresholds[2]) or (dist_tmp[3] < thresholds[3])):
+                #         lc_inTrk = []
+                #         print("Here")
+                #         for lc in tmp[0]:
+                #             # print(lc[0])
+                #             # print(len(gridTest[0]))
+                #             if(lc[0]<len(gridTest[0])): # the LC is valid (not hole)
+                #                 coordinates_lc = dec_to_cart(lc,dataset)
+                #                 # print('****** COORDINATES ***')
+                #                 # print(coordinates_lc)
+                #                 condition_indices_lc = np.where((gridTest[:,0]==coordinates_lc[0]) & (gridTest[:,1]==coordinates_lc[1]) & (gridTest[:,2]==coordinates_lc[2]))
+                #                 # print(condition_indices_lc)
+                #                 print('****** GRID WITH COND IND ***')
+                #                 print(gridTest[condition_indices_lc])
+                #                 lc_crds = gridTest[condition_indices_lc,-1]
+                #                 lc_coords_tmp = gridTest[condition_indices_lc,-1][0]
+                #                 # print(f"1 {gridTest[condition_indices_lc,-1]}")
+                #                 # print(gridTest[condition_indices_lc,-1][0])
+                #                 if(len(lc_coords_tmp) > 0):                                
+                #                     # print(f"2 {gridTest[condition_indices_lc,-1][0][0]}")
+                #                     lc_inTrk.append(gridTest[condition_indices_lc,-1][0][0])
+                        
+                #         print('LC_INTRK: {}'.format(lc_inTrk))
+                #         trkIsValid(lc_inTrk, enThreshold, enThresholdCumulative)
+
+                #         ##### HERE GOES THE ENERGY CONDITION ######
+                #         #  
+                #         # This will become the trackster to dump
+                #         Tracksters_to_remove = Tracksters_to_remove + tmp
+                #         print('Tracksters to remove: ', tmp)
+                #     else:
+                #         keep_going = False
+                # break
             break
         break            
-    #             dists_quantum = [f_dist_t(track, dataset, "dec") for track in Tracksters_found_quantumly]
+    #             dists_quantum = [f_dist_t(track, dataset, "dec") for track in Tracksters_to_remove]
     #             print(dists_quantum)
     # plots3DwithProjection(xs,ys,zs)
