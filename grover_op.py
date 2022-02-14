@@ -384,8 +384,8 @@ def Grover(thresholds, all_points_ordered, dataset, input_form = "dec", output_f
     DimX, DimY = n_qubits(len(all_X),len(all_Y))
     DimZ = len(all_Z)
     
-    if Printing==True:
-        print('DimX, DimY: ', DimX, DimY)
+    # if Printing==True:
+    #     print('DimX, DimY: ', DimX, DimY)
 
     #If there are not enough layers, return an empty array:
     if len(all_Z_indices) < 4:
