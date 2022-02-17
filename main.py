@@ -5,6 +5,7 @@
 ################################################################
 
 
+import sys
 from re import L
 import numpy as np
 import pandas as pd
@@ -14,6 +15,7 @@ import argparse
 from plot_utils import *
 import matplotlib.pyplot as plt
 import itertools
+from copy import deepcopy
 
 
 def createGrid(x,y,z):
@@ -72,18 +74,6 @@ def trkIsValid(lcInTrackster, energyThrs, energyThrsCumulative):
         return [lcInTrackster[i][minIndices[i]] for i in range(len(minIndices))]
         # return [lc_list[i] for lc_list in len(lcInTrackster)]
 
-    # for i,e in enumerate(lcEnergy[:-1]):
-    #     curr = e
-    #     nxt = lcEnergy[i+1]
-    #     for j,c in enumerate(curr):
-    #         for k,n in enumerate(nxt):
-    #             diff = np.abs((c-n)/(c+n))
-                # print(f'{c,n,(c-n), (c+n), diff}')    
-               # ABS(MAX[(E1-E2)/(E1+E2)])>EN_threshold 
-
-    # print('LC_ENERGY: {}'.format(lcEnergy))
-
-
 
 if __name__ == "__main__":
 
@@ -113,10 +103,16 @@ if __name__ == "__main__":
     # Choose maximum dimension of grover_data to be fed Grover
     grover_size = [7,4,4]
 
+    # Define overlap parameter
+    overlap = [1,1,1]
+    if(overlap[0]>=grover_size[0] or overlap[1]>=grover_size[1] or overlap[2]>=grover_size[2]):
+        print('Overlap cannot be larger than grover_size!')
+        sys.exit()
+
     # Set the thresholds
-    gridThreshold = 4  #10
+    gridThreshold = 2.5
     distThreshold = 3.5
-    enThreshold = 0.8
+    enThreshold = 0.5
     enThresholdCumulative = 0.5 * grover_size[2]
 
     #### Can add small padding
@@ -146,12 +142,13 @@ if __name__ == "__main__":
     # Define zTolerance for inserting points in the grid with respect to z value
     zTolerance = minDistance/2
 
-    # Pad z to have integer number of cubes for grover
-    Nz_rate = len(cubesZ)/grover_size[2]
-    z_pad = int(np.round((1-math.modf(Nz_rate)[0])*grover_size[2]))
+    # Pad z to have integer number of cubes for grover (including overlapping)
+    Nz_rate = (len(cubesZ)-grover_size[2])/(grover_size[2]-overlap[2])+1
+    z_pad = int(np.round((1-math.modf(Nz_rate)[0])*(grover_size[2]-overlap[2])))
     for k in range(z_pad):
         cubesZ.append(cubesZ[len(cubesZ)-1]+minDistance)
 
+    
     # Define xy distance
     tileL = (maxDistance*gridThreshold/(2*np.sqrt(2)))
 
@@ -169,18 +166,24 @@ if __name__ == "__main__":
     cubesX = []
     cubesY = []
 
-    # Pad x and y to have integer number of cubes for grover
-    Nx_rate = Nx/grover_size[0]
-    Ny_rate = Ny/grover_size[1]
+    # Pad x and y to have integer number of cubes for grover (including overlapping)
+    # Nx_rate = Nx/grover_size[0]
+    # Ny_rate = Ny/grover_size[1]
+    Nx_rate = (Nx-grover_size[0])/(grover_size[0]-overlap[0])+1
+    Ny_rate = (Ny-grover_size[1])/(grover_size[1]-overlap[1])+1
 
-    Nx += int(np.round((1-math.modf(Nx_rate)[0])*grover_size[0]))
-    Ny += int(np.round((1-math.modf(Ny_rate)[0])*grover_size[1]))
+    x_pad = int(np.round((1-math.modf(Nx_rate)[0])*(grover_size[0]-overlap[0])))
+    y_pad = int(np.round((1-math.modf(Ny_rate)[0])*(grover_size[1]-overlap[1])))
 
+    Nx += x_pad
+    Ny += y_pad
+    
     # Create list of coordinates of the cubes 
     for i in range(Nx):
         cubesX.append(minX+tileL/2 + i*tileL)
     for i in range(Ny):
         cubesY.append(minY+tileL/2 + i*tileL)
+
 
 
     # Now create the grid with each cube represented by a list (x,y,z,k,0) where k is the layer number and 0 is the cardinality (# of points in the cube)
@@ -193,11 +196,13 @@ if __name__ == "__main__":
 
     # Fill the grid 
     # print('Filling the grid...')
-    # This is super slow! Maybe we can run it once and save the grid in a csv file
+    # # This is super slow! Maybe we can run it once and save the grid in a csv file
     # fillTheGrid(gridStructure, allX, allY, allZ, allLayer, allEnergies, tileL, zTolerance)
     # print('Grid filled!')
 
-    gridStructure = np.load('grid.npy', allow_pickle=True)
+    # np.save('grid_overlap.npy', gridStructure, allow_pickle=True)
+
+    gridStructure = np.load('grid_overlap.npy', allow_pickle=True)
 
     # Choosing thresholds:
     thresholds = [gridThreshold,gridThreshold,gridThreshold,gridThreshold]
@@ -206,23 +211,31 @@ if __name__ == "__main__":
     allTrksFoundQuantumly = pd.DataFrame([],columns=LCs_columns)
     numTrk = 0
 
-    for i in range(int(len(cubesX)/grover_size[0])):
-        for j in range(int(len(cubesY)/grover_size[1])):
-            for k in range(int(len(cubesZ)/grover_size[2])):
+    for i in range(int((len(cubesX)-grover_size[0])/(grover_size[0]-overlap[0])+1)):
+        for j in range(int((len(cubesY)-grover_size[1])/(grover_size[1]-overlap[1])+1)):
+            for k in range(int((len(cubesZ)-grover_size[2])/(grover_size[2]-overlap[2])+1)):
                 counterTrkr = 0 # Counter tracksters to remove
-                print('\n **** k value % = ', (k+1)/int(len(cubesZ)/grover_size[2]))
-                print('\n [i,j,k] = ', i,j,k)
+                print('[i,j,k] = ', i,j,k)
+                print('**** i value % = ', (i+1)/int(len(cubesX)/grover_size[0]))
+                print('**** j value % = ', (j+1)/int(len(cubesY)/grover_size[1]))
+                print('**** k value % = ', (k+1)/int(len(cubesZ)/grover_size[2]))
                 # i,j,k = [1,13,4]
                 # i,j = [4,14] # also 2,14,2-3-4-6 --- for cubes with cardinality > 1
                 # print(f" Shape grid structure {gridStructure.shape} {type(gridStructure)}")
-                condition_indices = np.where((gridStructure[:,0]>=cubesX[i*grover_size[0]]) & (gridStructure[:,0]<=cubesX[(i+1)*grover_size[0]-1]) 
-                                        & (gridStructure[:,1]>=cubesY[j*grover_size[1]]) & (gridStructure[:,1]<=cubesY[(j+1)*grover_size[1]-1]) 
-                                        & (gridStructure[:,2]>=cubesZ[k*grover_size[2]]) & (gridStructure[:,2]<=cubesZ[(k+1)*grover_size[2]-1]))
+                # condition_indices = np.where((gridStructure[:,0]>=cubesX[i*grover_size[0]]) & (gridStructure[:,0]<=cubesX[(i+1)*grover_size[0]-1]) 
+                #                         & (gridStructure[:,1]>=cubesY[j*grover_size[1]]) & (gridStructure[:,1]<=cubesY[(j+1)*grover_size[1]-1]) 
+                #                         & (gridStructure[:,2]>=cubesZ[k*grover_size[2]]) & (gridStructure[:,2]<=cubesZ[(k+1)*grover_size[2]-1]))
+                # condition_indices = np.where((gridStructure[:,0]>=cubesX[i*(grover_size[0]-int(overlap[0]*np.heaviside(i-0.5,0)))]) & (gridStructure[:,0]<=cubesX[(i+1)*(grover_size[0]-int(overlap[0]*np.heaviside(i-0.5,0)))-1]) 
+                #                         & (gridStructure[:,1]>=cubesY[j*(grover_size[1]-int(overlap[1]*np.heaviside(j-0.5,0)))]) & (gridStructure[:,1]<=cubesY[(j+1)*(grover_size[1]-int(overlap[1]*np.heaviside(j-0.5,0)))-1]) 
+                #                         & (gridStructure[:,2]>=cubesZ[k*(grover_size[2]-int(overlap[2]*np.heaviside(k-0.5,0)))]) & (gridStructure[:,2]<=cubesZ[(k+1)*(grover_size[2]-int(overlap[2]*np.heaviside(k-0.5,0)))-1]))
+                condition_indices = np.where((gridStructure[:,0]>=cubesX[i*(grover_size[0]-int(overlap[0]*np.heaviside(i-0.5,0)))]) & (gridStructure[:,0]<=cubesX[(i+1)*(grover_size[0]-int(overlap[0]*np.heaviside(i-0.5,0)))-int(np.heaviside(-i+0.5,0))]) 
+                                        & (gridStructure[:,1]>=cubesY[j*(grover_size[1]-int(overlap[1]*np.heaviside(j-0.5,0)))]) & (gridStructure[:,1]<=cubesY[(j+1)*(grover_size[1]-int(overlap[1]*np.heaviside(j-0.5,0)))-int(np.heaviside(-j+0.5,0))]) 
+                                        & (gridStructure[:,2]>=cubesZ[k*(grover_size[2]-int(overlap[2]*np.heaviside(k-0.5,0)))]) & (gridStructure[:,2]<=cubesZ[(k+1)*(grover_size[2]-int(overlap[2]*np.heaviside(k-0.5,0)))-int(np.heaviside(-k+0.5,0))]))
 
-                gridTest = gridStructure[condition_indices]
+                gridTest = deepcopy(gridStructure[condition_indices])
 
-                # print('**** GRID TEST***\n', gridTest.shape, type(gridTest))
-                # print(f"gridStructure 6 {type(gridStructure[0,5])} {gridStructure[0,5]}")
+                print('**** GRID TEST SHAPE***\n', gridTest.shape, type(gridTest))
+                # print('**** GRID TEST***\n', gridTest)
 
                 all_X = np.unique(gridTest[:,0])
                 all_Y = np.unique(gridTest[:,1])
@@ -266,6 +279,10 @@ if __name__ == "__main__":
                     occupied_cubes = [np.array(k) for k in temp]
                     # print('OCCUPIED CUBES ******** \n', occupied_cubes)
 
+                    # If there are less than 3 points in gridTest, exit the for loop
+                    if(len(occupied_cubes)<=2):
+                        break
+
                     # Use the function "points_layer_collection" for splitting the point into the different layers:
                     all_points_ordered = points_layer_collection(occupied_cubes, dataset)
                     # print('ALL POINTS ORDERED ******** \n', all_points_ordered)
@@ -273,14 +290,14 @@ if __name__ == "__main__":
                     # Grover Iteration
                     print("\n **** Grover call! ****")
                     tmp = [Grover(thresholds, all_points_ordered, dataset, tracksters_to_be_removed = Tracksters_to_remove, Printing = True)]
-                    print("\n **** Grover found something! ****")
+                    print("**** Grover found something! ****")
                     # print('Tmp: ', tmp)
                     dist_tmp = f_dist_t(tmp[0], dataset, "dec")
 
                     if (len(tmp) != 0) and ((dist_tmp[0] < thresholds[0]) or (dist_tmp[1] < thresholds[1]) or (dist_tmp[2] < thresholds[2]) or (dist_tmp[3] < thresholds[3])):
                         lc_inTrk = []
                         
-                        print('*** Distance conditions satisfied! ***')
+                        print('\n*** Distance conditions satisfied! ***')
                         all_condition_indices_ls = list()
                         for lc in tmp[0]:
                             # print(lc[0])
@@ -309,7 +326,7 @@ if __name__ == "__main__":
                         # print('gridTest : {}'.format(gridTest))
 
                         if(len(checkTrk)>0):
-                            ('\n *** Energy conditions satisfied! ***')
+                            print('*** Energy conditions satisfied! ***')
                             # remove LCs from gridstruct (counter --)
                             for l, cond in enumerate(all_condition_indices_ls):
                                 # print('gridTest (pre): {}'.format(gridTest[cond]))
@@ -326,7 +343,7 @@ if __name__ == "__main__":
                             # print('Tracksters found quantumly: \n', allTrksFoundQuantumly)
                         else:
                             # if condition not satisfied, dump trackster tmp
-                            ('\n *** Energy conditions NOT satisfied! Trackster dumped! ***')
+                            print('*** Energy conditions NOT satisfied! Trackster dumped! ***')
                             if(counterTrkr == 0):
                                 Tracksters_to_remove = tmp
                                 counterTrkr += 1
@@ -336,7 +353,7 @@ if __name__ == "__main__":
                     #         print('Tracksters to remove: ', Tracksters_to_remove)                    
                     else:
                         keep_going = False
-                        print('\n *** Distance conditions NOT satisfied! No more Tracksters to be found! ***')
+                        print('\n*** Distance conditions NOT satisfied! No more Tracksters to be found! ***')
                     print("distances of last point: ",dist_tmp)
 
                 # break
@@ -384,4 +401,4 @@ if __name__ == "__main__":
 
     print('\n***** LEN: {}\n'.format(len(xs)))
     plots3DwithProjection(fig, xs, ys, zs, ranges)
-    plt.savefig("./trk_new.png")
+    plt.savefig("./trk_overlap_th4.png")
