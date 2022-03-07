@@ -5,6 +5,7 @@
 ##############################################
 
 
+from cmath import log10
 import numpy as np
 import scipy
 import scipy.sparse
@@ -12,7 +13,9 @@ import scipy.sparse.linalg
 import random
 import math
 from q_utilities import *
-
+from scipy.special import gamma
+from scipy.integrate import trapz
+import sys
 
 ################
 ### *************** CHANGE OF COORDINATES *************** ###
@@ -230,6 +233,86 @@ def full_qubit_to_dec(in_vec, dataset, form = "dec"):
         return [dec_to_cart(dec_fin[i], dataset) for i in range(len(all_Z))]
     else:
         print("Which form do you want the output in the function full_qubit_to_dec?")
+
+def line_fit(data):
+
+    # calculate the mean of the points, i.e. the 'center' of the cloud
+    datamean = np.mean(data, axis = 0)
+
+    # do an SVD on the mean-centered data.
+    # vv[0] contains the first principal component, i.e. the direction vector of the 'best fit' line in the least squares sense.
+    uu, dd, vv = np.linalg.svd(data - datamean)
+
+
+    # find the length of the segment such that it encompasses all the considered points.
+    max_dist = np.linalg.norm(data[-1] - data[0])
+    
+    
+    # I use -7, 7 since the spread of the data is roughly 14
+    # and we want it to have mean 0 (like the points we did
+    # the svd on). Also, it's a straight line, so we only need 2 points.
+    linepts = vv[0] * np.mgrid[-max_dist:max_dist:2j][:, np.newaxis]
+
+    # shift by the mean to get the line in the right place
+    linepts += datamean
+    
+    # linepts_xy = linepts
+    # linepts_etaphi = np.array([xyz_to_etaphiz(linepts_xy[0,0], linepts_xy[0,1], linepts_xy[0,2]),
+    #                           xyz_to_etaphiz(linepts_xy[-1,0], linepts_xy[-1,1], linepts_xy[-1,2])])
+
+    return linepts
+
+def dist_from_line(point, linepts):
+    
+    Av = linepts[0]
+    Bv = linepts[1]
+    Pv = point
+
+    # find the point Vv = Bv + (v-1) Av on the line that is perpendicular to the chosen point outside
+    v = ((Av[0]-Bv[0]) * (Av[0]-Bv[0]+Pv[0]) + (Av[1]-Bv[1]) * (Av[1]-Bv[1]+Pv[1]) + (Av[2]-Bv[2]) * (Av[2]-Bv[2]+Pv[2])) / (Av[0]**2 + Av[1]**2 - Av[0]*Bv[0] - Av[1]*Bv[1] + Av[2]*(Av[2]-Bv[2]))
+    Vv = Bv + (v-1)*Av
+    
+    # return the norm of the vector point - Vv
+    return np.linalg.norm(Pv-Vv)
+
+def pval_fit(data):
+    linepts = line_fit(data)
+    sum = 0
+    for point in data:
+        sum += dist_from_line(point, linepts)**2
+    sum = np.sqrt(sum)
+    # print('||||||| Sum: {}'.format(sum))
+    dofs = len(data) - 2
+    prob = p_val(sum, dofs)
+    # print('||||||| PVAL: {}'.format(prob))
+    return prob
+
+def chi_squared(x, dofs):
+    return (x**(dofs/2-1) * np.exp(-x/2)) / (2**(dofs/2) * scipy.special.gamma(dofs/2)) * np.heaviside(x, 0)
+
+def p_val(xi_val, dofs, check=False):
+    if(check):
+        N_points = 10**3
+        if (dofs == 1):
+            x_int = np.logspace(-10, 3, N_points)
+        else: 
+            x_int = np.arange(dofs/10**10, 10**2*dofs, 1/N_points)
+        norm = trapz(chi_squared(x_int, dofs), x_int)
+        print('||||| NORM X^2', norm)
+        if(np.abs(1-norm)> 0.01):
+            sys.exit()
+
+    N_points = 10**3
+    if (dofs == 1):
+        x_int = np.logspace(-10, np.log10(xi_val), N_points)
+    else:
+        x_int = np.arange(dofs/10**10, xi_val, xi_val/N_points)
+    
+    F_approx = trapz(chi_squared(x_int, dofs), x_int)
+    
+    return F_approx
+
+
 
 
 
