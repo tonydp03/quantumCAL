@@ -234,19 +234,68 @@ def full_qubit_to_dec(in_vec, dataset, form = "dec"):
     else:
         print("Which form do you want the output in the function full_qubit_to_dec?")
 
-def line_fit(data):
 
-    # calculate the mean of the points, i.e. the 'center' of the cloud
-    datamean = np.mean(data, axis = 0)
+def pca(data, weights):
+    xyz = data.T
+    assert xyz.shape[0] == 3, "Input data shape should be 3, check your input shape"
+    N = len(weights)
+    barycenter = [0.,0.,0.]
+    covM = np.array([[0.,0.,0.],[0.,0.,0.],[0.,0.,0.]])
+    covMW = np.array([[0.,0.,0.],[0.,0.,0.],[0.,0.,0.]])
+    sorted_index = [0,0,0]
+    sorted_eigenvalue = [0,0,0]
+    sorted_eigenvectors = [0,0,0]
 
-    # do an SVD on the mean-centered data.
-    # vv[0] contains the first principal component, i.e. the direction vector of the 'best fit' line in the least squares sense.
-    uu, dd, vv = np.linalg.svd(data - datamean)
+    weight_sum = np.sum(weights)
+    weight_sum2 = 0
 
+    # Compute the barycenter
+    # barycenter = np.average(data, weights, axis=0)
+    for i in range(N):
+
+        weight = weights[i] #computing the weight
+        barycenter[0] += xyz[0][i] * weight
+        barycenter[1] += xyz[1][i] * weight
+        barycenter[2] += xyz[2][i] * weight
+    # print(barycenter)
+    barycenter /= weight_sum 
+
+    #Compute the covariance matrix
+    covM = np.array([[0.,0.,0.],[0.,0.,0.],[0.,0.,0.]])
+    for i in range(N):
+        weight = weights[i]/weight_sum
+
+        weight_sum2 += weight * weight            
+        for x in range(3):
+            for y in range(3):
+                covM[x][y] += weight * (xyz[x][i] - barycenter[x]) * (xyz[y][i] - barycenter[y])
+    
+    covMW = covM * 1./(1-weight_sum2) #weighted covariance matrix
+    #get eigenvalues and eigenvectors and sort them
+    try:
+        eigen_values , eigen_vectors = np.linalg.eigh(covMW)
+        norm = np.linalg.norm(eigen_values)
+        vectors = eigen_values/norm
+        sorted_index = np.argsort(vectors)[::-1]
+        # sorted_eigenvalue = vectors[sorted_index]
+        sorted_eigenvectors = eigen_vectors[:,sorted_index].T
+    except:
+        print("Not Converged")
+        sorted_index = [0,0,0]
+        # sorted_eigenvalue = [0,0,0]
+        sorted_eigenvectors = [0,0,0]
+        barycenter = []
+
+    return barycenter, sorted_eigenvectors 
+
+def line_fit(data, weights):
+
+
+    # calculate the mean of the points, i.e. the 'center' of the cloud, and the pca vector
+    datamean, vv = pca(np.array(data), weights)
 
     # find the length of the segment such that it encompasses all the considered points.
     max_dist = np.linalg.norm(data[-1] - data[0])
-    
     
     # I use -7, 7 since the spread of the data is roughly 14
     # and we want it to have mean 0 (like the points we did
@@ -275,8 +324,8 @@ def dist_from_line(point, linepts):
     # return the norm of the vector point - Vv
     return np.linalg.norm(Pv-Vv)
 
-def pval_fit(data):
-    linepts = line_fit(data)
+def pval_fit(data, weights):
+    linepts = line_fit(data, weights)
     sum = 0
     for point in data:
         sum += dist_from_line(point, linepts)**2

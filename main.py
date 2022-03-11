@@ -55,8 +55,9 @@ def trkIsValid(lcInTrackster, energyThrs, energyThrsCumulative, pThrs):
     for path in allPaths:
         enDiff = 0
         points = [lcXYZ[i][k] for i,k in enumerate(path)]
+        energies = [lcEnergy[i][k] for i,k in enumerate(path)]
         # print('Points: ', points)
-        pval = pval_fit(points)
+        pval = pval_fit(points, energies)
         # print('*!*! PVAL = ', pval)
         if(pval > pThrs):
             pval = float('inf')
@@ -92,7 +93,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--dir', type=str, default='./')
     args = parser.parse_args()
-
+    
     # Set directory
     data_dir = args.dir
 
@@ -109,9 +110,6 @@ if __name__ == "__main__":
     allEnergies = grover_data['lcEnergy'].values
     allTracks = grover_data['lcToTrack1'].values
 
-    # Set the kind of coordinates to use
-    CoordUsed = 'pseudo'
-
     # Choose maximum dimension of grover_data to be fed Grover
     grover_size = [7,4,4]
 
@@ -122,7 +120,7 @@ if __name__ == "__main__":
         sys.exit()
 
     # Set the thresholds
-    gridThreshold = 4 # to define the tile size
+    gridThreshold = 2.5 #4 # to define the tile size
     distThreshold = 3.5 
     enThreshold = 0.7
     enThresholdCumulative = 0.5 * grover_size[2]
@@ -408,4 +406,4 @@ if __name__ == "__main__":
     # print('\n***** LEN: {}\n'.format(len(xs)))
     plots3DwithProjection(fig, xs, ys, zs, ranges)
     # plt.savefig("./trk_overlap_th" + str(gridThreshold) + ".png")
-    plt.savefig("./trk_overlap_pth"  + str(pThreshold) + ".png")
+    plt.savefig("./trk_overlap_gTh" + str(gridThreshold) + "_pTh"  + str(pThreshold) + "_new.png")
