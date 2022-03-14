@@ -407,3 +407,4 @@ if __name__ == "__main__":
     plots3DwithProjection(fig, xs, ys, zs, ranges)
     # plt.savefig("./trk_overlap_th" + str(gridThreshold) + ".png")
     plt.savefig("./trk_overlap_gTh" + str(gridThreshold) + "_pTh"  + str(pThreshold) + "_new.png")
+    print('Grover search ended succesfully! ')
