@@ -290,16 +290,13 @@ def pca(data, weights):
 
 def line_fit(data, weights):
 
-
     # calculate the mean of the points, i.e. the 'center' of the cloud, and the pca vector
     datamean, vv = pca(np.array(data), weights)
 
     # find the length of the segment such that it encompasses all the considered points.
     max_dist = np.linalg.norm(data[-1] - data[0])
     
-    # I use -7, 7 since the spread of the data is roughly 14
-    # and we want it to have mean 0 (like the points we did
-    # the svd on). Also, it's a straight line, so we only need 2 points.
+    # calculate the line segment
     linepts = vv[0] * np.mgrid[-max_dist:max_dist:2j][:, np.newaxis]
 
     # shift by the mean to get the line in the right place
@@ -309,7 +306,7 @@ def line_fit(data, weights):
     # linepts_etaphi = np.array([xyz_to_etaphiz(linepts_xy[0,0], linepts_xy[0,1], linepts_xy[0,2]),
     #                           xyz_to_etaphiz(linepts_xy[-1,0], linepts_xy[-1,1], linepts_xy[-1,2])])
 
-    return linepts
+    return linepts, vv[0]
 
 def dist_from_line(point, linepts):
     
@@ -325,7 +322,7 @@ def dist_from_line(point, linepts):
     return np.linalg.norm(Pv-Vv)
 
 def pval_fit(data, weights):
-    linepts = line_fit(data, weights)
+    linepts, _ = line_fit(data, weights)
     sum = 0
     for point in data:
         sum += dist_from_line(point, linepts)**2
@@ -360,7 +357,6 @@ def p_val(xi_val, dofs, check=False):
     F_approx = trapz(chi_squared(x_int, dofs), x_int)
     
     return F_approx
-
 
 
 

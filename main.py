@@ -28,13 +28,13 @@ def createGrid(x,y,z):
     return gridstructure
 
 
-def fillTheGrid(gridstructure, x, y, z, layer, energy, lxy, lz):
+def fillTheGrid(gridstructure, x, y, z, layer, energy, lcid, lxy, lz):
     for i in range(len(x)):
         condition_found = np.where((gridstructure[:,0]+lxy/2>x[i]) & (gridstructure[:,0]-lxy/2<x[i])
                         & (gridstructure[:,1]+lxy/2>y[i]) & (gridstructure[:,1]-lxy/2<y[i]) 
                         & (gridstructure[:,2]+lz>z[i]) & (gridstructure[:,2]-lz<z[i]))
         gridstructure[condition_found, 4] += 1
-        gridstructure[condition_found, 5][0][0].append(np.array([x[i],y[i],z[i],layer[i],energy[i]]))
+        gridstructure[condition_found, 5][0][0].append(np.array([x[i],y[i],z[i],layer[i],energy[i],lcid[i]]))
 
     return gridstructure
 
@@ -71,7 +71,7 @@ def trkIsValid(lcInTrackster, energyThrs, energyThrsCumulative, pThrs):
                     enDiff += float('inf')
             curr = lcEnergy[i][k]
         # print('ENDIFF {}'.format(enDiff))
-        if(enDiff > energyThrsCumulative):
+        if(enDiff > energyThrsCumulative*len(energies)): # we multiply the energyThrsCumulative by the number of LCs
             totEnDiff.append(float('inf'))
         else:
             totEnDiff.append(enDiff/len(path))
@@ -120,11 +120,11 @@ if __name__ == "__main__":
         sys.exit()
 
     # Set the thresholds
-    gridThreshold = 2.5 #4 # to define the tile size
+    gridThreshold = 2. #4 # to define the tile size
     distThreshold = 3.5 
     enThreshold = 0.7
-    enThresholdCumulative = 0.5 * grover_size[2]
-    pThreshold = .95
+    enThresholdCumulative = 0.6
+    pThreshold = .99
 
     #### Can add small padding
     minX = min(allX)
@@ -198,27 +198,27 @@ if __name__ == "__main__":
 
 
     # Now create the grid with each cube represented by a list (x,y,z,k,0) where k is the layer number and 0 is the cardinality (# of points in the cube)
-    # print('Creating the grid...')
-    # gridStructure = createGrid(cubesX, cubesY, cubesZ)
-    # print('Grid created!')
+    print('Creating the grid...')
+    gridStructure = createGrid(cubesX, cubesY, cubesZ)
+    print('Grid created!')
 
     ##### gridStructure elements can be accessed easily: gridStructure[0,2] gives access to z (2) of the first cube (0)
     ##### The first element indicates the cubeID, the second corresponds to the feature: 0 for x, 1 for y, 2 for z, 3 for layer and 4 for cardinality
 
     # Fill the grid 
-    # print('Filling the grid...')
+    print('Filling the grid...')
     # # This is super slow! Maybe we can run it once and save the grid in a csv file
-    # fillTheGrid(gridStructure, allX, allY, allZ, allLayer, allEnergies, tileL, zTolerance)
-    # print('Grid filled!')
+    fillTheGrid(gridStructure, allX, allY, allZ, allLayer, allEnergies, allID, tileL, zTolerance)
+    print('Grid filled!')
 
-    # np.save('grid_overlap.npy', gridStructure, allow_pickle=True)
+    np.save('grid_overlap.npy', gridStructure, allow_pickle=True)
 
-    gridStructure = np.load('grid_overlap.npy', allow_pickle=True)
+    # gridStructure = np.load('grid_overlap.npy', allow_pickle=True)
 
     # Choosing thresholds:
     thresholds = [gridThreshold,gridThreshold,gridThreshold,gridThreshold]
 
-    LCs_columns = ['i', 'j', 'k', 'x', 'y', 'z', 'layer', 'energy', 'TrkId']
+    LCs_columns = ['i', 'j', 'k', 'x', 'y', 'z', 'layer', 'energy', 'LCID', 'TrkId']
     allTrksFoundQuantumly = pd.DataFrame([],columns=LCs_columns)
     numTrk = 0
 
@@ -341,7 +341,7 @@ if __name__ == "__main__":
                                 # print('gridTest (post): {}'.format(gridTest[cond]))
         
                                 #### Put into the dataframe
-                                LC_forDataFrame = [i,j,k, checkTrk[l][0], checkTrk[l][1], checkTrk[l][2],checkTrk[l][3], checkTrk[l][4], numTrk]
+                                LC_forDataFrame = [i,j,k, checkTrk[l][0], checkTrk[l][1], checkTrk[l][2],checkTrk[l][3], checkTrk[l][4], checkTrk[l][5], numTrk]
                                 allTrksFoundQuantumly.loc[len(allTrksFoundQuantumly)] = LC_forDataFrame
                             numTrk += 1 # Increase counter of num Tracksters
                             # print('Tracksters found quantumly: \n', allTrksFoundQuantumly)
@@ -365,6 +365,8 @@ if __name__ == "__main__":
         # break            
     #             dists_quantum = [f_dist_t(track, dataset, "dec") for track in Tracksters_to_remove]
     # print('\n **** Grover routines ended ****\n')
+
+    allTrksFoundQuantumly.to_csv("trackstersGrover_gTh" + str(gridThreshold) + "_pTh"  + str(pThreshold) + ".csv")
 
 
     fig = plt.figure(figsize = (30,25))
