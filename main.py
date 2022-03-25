@@ -4,7 +4,7 @@
 ################################################################
 ################################################################
 
-
+import os
 import sys
 from re import L
 import numpy as np
@@ -43,12 +43,7 @@ def trkIsValid(lcInTrackster, energyThrs, energyThrsCumulative, pThrs):
     energyIndices = [[i for i in range(len(energies))] for energies in lcEnergy]
 
     allPaths = list(itertools.product(*energyIndices))
-    # print(f'\n {lcEnergy}')
-    # print(f'{allPaths}')
-    # print(f'{lcInTrackster}')
-
     lcXYZ = [[lcInfo[:3] for lcInfo in lc] for lc in lcInTrackster]
-    # print(f'{lcXYZ}')
 
     totEnDiff = []
     totPVal = []
@@ -56,9 +51,7 @@ def trkIsValid(lcInTrackster, energyThrs, energyThrsCumulative, pThrs):
         enDiff = 0
         points = [lcXYZ[i][k] for i,k in enumerate(path)]
         energies = [lcEnergy[i][k] for i,k in enumerate(path)]
-        # print('Points: ', points)
         pval = pval_fit(points, energies)
-        # print('*!*! PVAL = ', pval)
         if(pval > pThrs):
             pval = float('inf')
             # pval = 1
@@ -70,7 +63,6 @@ def trkIsValid(lcInTrackster, energyThrs, energyThrsCumulative, pThrs):
                 else:
                     enDiff += float('inf')
             curr = lcEnergy[i][k]
-        # print('ENDIFF {}'.format(enDiff))
         if(enDiff > energyThrsCumulative*len(energies)): # we multiply the energyThrsCumulative by the number of LCs
             totEnDiff.append(float('inf'))
         else:
@@ -177,9 +169,7 @@ if __name__ == "__main__":
     cubesX = []
     cubesY = []
 
-    # Pad x and y to have integer number of cubes for grover (including overlapping)
-    # Nx_rate = Nx/grover_size[0]
-    # Ny_rate = Ny/grover_size[1]
+    # Pad x and y to have integer number of cubes for grover
     Nx_rate = (Nx-grover_size[0])/(grover_size[0]-overlap[0])+1
     Ny_rate = (Ny-grover_size[1])/(grover_size[1]-overlap[1])+1
 
@@ -195,25 +185,24 @@ if __name__ == "__main__":
     for i in range(Ny):
         cubesY.append(minY+tileL/2 + i*tileL)
 
+    try:
+        gridStructure = np.load('grid_overlap.npy', allow_pickle=True)  
+    except:
+        # Now create the grid with each cube represented by a list (x,y,z,k,0) where k is the layer number and 0 is the cardinality (# of points in the cube)
+        print('Creating the grid...')
+        gridStructure = createGrid(cubesX, cubesY, cubesZ)
+        print('Grid created!')
 
+        # gridStructure elements can be accessed easily: gridStructure[0,2] gives access to z (2) of the first cube (0)
+        # The first element indicates the cubeID, the second corresponds to the feature: 
+        # 0 for x, 1 for y, 2 for z, 3 for layer, 4 for cardinality, 5 for the list of LCs in the cube
 
-    # Now create the grid with each cube represented by a list (x,y,z,k,0) where k is the layer number and 0 is the cardinality (# of points in the cube)
-    print('Creating the grid...')
-    gridStructure = createGrid(cubesX, cubesY, cubesZ)
-    print('Grid created!')
+        # Fill the grid 
+        print('Filling the grid...')
+        fillTheGrid(gridStructure, allX, allY, allZ, allLayer, allEnergies, allID, tileL, zTolerance)
+        print('Grid filled!')
 
-    ##### gridStructure elements can be accessed easily: gridStructure[0,2] gives access to z (2) of the first cube (0)
-    ##### The first element indicates the cubeID, the second corresponds to the feature: 0 for x, 1 for y, 2 for z, 3 for layer and 4 for cardinality
-
-    # Fill the grid 
-    print('Filling the grid...')
-    # # This is super slow! Maybe we can run it once and save the grid in a csv file
-    fillTheGrid(gridStructure, allX, allY, allZ, allLayer, allEnergies, allID, tileL, zTolerance)
-    print('Grid filled!')
-
-    np.save('grid_overlap.npy', gridStructure, allow_pickle=True)
-
-    # gridStructure = np.load('grid_overlap.npy', allow_pickle=True)
+        np.save('grid_overlap.npy', gridStructure, allow_pickle=True)
 
     # Choosing thresholds:
     thresholds = [gridThreshold,gridThreshold,gridThreshold,gridThreshold]
@@ -232,12 +221,14 @@ if __name__ == "__main__":
                 print('**** j value % = ', (j+1)/int((len(cubesY)-grover_size[1])/(grover_size[1]-overlap[1])+1))
                 print('**** k value % = ', (k+1)/int((len(cubesZ)-grover_size[2])/(grover_size[2]-overlap[2])+1))
                 # i,j,k = [1,13,4]
-                # i,j = [4,14] # also 2,14,2-3-4-6 --- for cubes with cardinality > 1
-                # print(f" Shape grid structure {gridStructure.shape} {type(gridStructure)}")
-                
+                # i,j = [4,14] # also 2,14,2-3-4-6 --- for cubes with cardinality > 1                
+
+                # If overlapping==0
                 # condition_indices = np.where((gridStructure[:,0]>=cubesX[i*grover_size[0]]) & (gridStructure[:,0]<=cubesX[(i+1)*grover_size[0]-1]) 
                 #                         & (gridStructure[:,1]>=cubesY[j*grover_size[1]]) & (gridStructure[:,1]<=cubesY[(j+1)*grover_size[1]-1]) 
                 #                         & (gridStructure[:,2]>=cubesZ[k*grover_size[2]]) & (gridStructure[:,2]<=cubesZ[(k+1)*grover_size[2]-1])) # This condition indices is for no overlapping
+
+                # If overlapping == 1 (not working for overlapping > 1)
                 condition_indices = np.where((gridStructure[:,0]>=cubesX[i*(grover_size[0]-int(overlap[0]*np.heaviside(i-0.5,0)))]) & (gridStructure[:,0]<=cubesX[(i+1)*(grover_size[0]-int(overlap[0]*np.heaviside(i-0.5,0)))-int(np.heaviside(-i+0.5,0))]) 
                                         & (gridStructure[:,1]>=cubesY[j*(grover_size[1]-int(overlap[1]*np.heaviside(j-0.5,0)))]) & (gridStructure[:,1]<=cubesY[(j+1)*(grover_size[1]-int(overlap[1]*np.heaviside(j-0.5,0)))-int(np.heaviside(-j+0.5,0))]) 
                                         & (gridStructure[:,2]>=cubesZ[k*(grover_size[2]-int(overlap[2]*np.heaviside(k-0.5,0)))]) & (gridStructure[:,2]<=cubesZ[(k+1)*(grover_size[2]-int(overlap[2]*np.heaviside(k-0.5,0)))-int(np.heaviside(-k+0.5,0))]))
@@ -303,42 +294,25 @@ if __name__ == "__main__":
                         # print('\n*** Distance conditions satisfied! ***')
                         all_condition_indices_ls = list()
                         for lc in tmp[0]:
-                            # print(lc[0])
-                            # print(len(gridTest[0]))
-                            # if(lc[0]<len(gridTest[0])): # the LC is valid (not hole)
                             coordinates_lc = dec_to_cart(lc,dataset)
                             if (not np.isnan(coordinates_lc[0])): # the LC is valid (not hole)
                                 condition_indices_lc = np.where((gridTest[:,0]==coordinates_lc[0]) & (gridTest[:,1]==coordinates_lc[1]) & (gridTest[:,2]==coordinates_lc[2]))
                                 all_condition_indices_ls.append(condition_indices_lc)
-                                # print(condition_indices_lc)
-                                # print('****** GRID WITH COND IND ***')
-                                # print(gridTest[condition_indices_lc])
-                                # lc_crds = gridTest[condition_indices_lc,-1]
                                 lc_coords_tmp = gridTest[condition_indices_lc,5][0]
-                                # print(f"1 {gridTest[condition_indices_lc,-1]}")
-                                # print('GRID : ******** \n', gridTest[condition_indices_lc])
                                 if(len(lc_coords_tmp) > 0):                                
-                                    # print(f"2 {gridTest[condition_indices_lc,-1][0][0]}")
                                     lc_inTrk.append(gridTest[condition_indices_lc,-1][0][0])
-                        # print('LC_INTRK: {}'.format(lc_inTrk))
 
                         ##### Energy + alignment conditions ###### 
                         # if condition satisfied, remove lc_inTrk from gridTest (counter-- and lc corrisponding to the energy used during check)
                         # and append tmp to the dataframe of "good" tracksters
                         checkTrk = trkIsValid(lc_inTrk, enThreshold, enThresholdCumulative, pThreshold)
-                        # print('LC_CHECKED_TRK: {}'.format(checkTrk))
-                        # print('gridTest : {}'.format(gridTest))
 
                         if(len(checkTrk)>0):
                             # print('*** Energy and alignment conditions satisfied! ***')
                             # remove LCs from gridstruct (counter --)
                             for l, cond in enumerate(all_condition_indices_ls):
-                                # print('gridTest (pre): {}'.format(gridTest[cond]))
                                 gridTest[cond,4]-=1
-                                # print('LC TO REMOVE: {}'.format(checkTrk[l]))
                                 remove_array_from_list(gridTest[cond,5][0][0], checkTrk[l])                             
-                                # gridTest[cond,5][0][0].remove(checkTrk[l])
-                                # print('gridTest (post): {}'.format(gridTest[cond]))
         
                                 #### Put into the dataframe
                                 LC_forDataFrame = [i,j,k, checkTrk[l][0], checkTrk[l][1], checkTrk[l][2],checkTrk[l][3], checkTrk[l][4], checkTrk[l][5], numTrk]
@@ -353,7 +327,6 @@ if __name__ == "__main__":
                                 counterTrkr += 1
                             else:
                                 Tracksters_to_remove = Tracksters_to_remove + tmp
-                    #         print('tmp: ', tmp)                    
                     #         print('Tracksters to remove: ', Tracksters_to_remove)                    
                     else:
                         keep_going = False
@@ -363,7 +336,6 @@ if __name__ == "__main__":
         #         break
         #     break
         # break            
-    #             dists_quantum = [f_dist_t(track, dataset, "dec") for track in Tracksters_to_remove]
     # print('\n **** Grover routines ended ****\n')
 
     allTrksFoundQuantumly.to_csv("trackstersGrover_gTh" + str(gridThreshold) + "_pTh"  + str(pThreshold) + ".csv")
@@ -403,10 +375,6 @@ if __name__ == "__main__":
             if(np.max(z_lcs)>ranges[2][1]):
                 ranges[2][1] = np.max(z_lcs)
 
-        # plots3DwithProjection(fig, ids, x_lcs,y_lcs,z_lcs, ranges)
-
-    # print('\n***** LEN: {}\n'.format(len(xs)))
     plots3DwithProjection(fig, xs, ys, zs, ranges)
-    # plt.savefig("./trk_overlap_th" + str(gridThreshold) + ".png")
     plt.savefig("./trk_overlap_gTh" + str(gridThreshold) + "_pTh"  + str(pThreshold) + "_new.png")
     print('Grover search ended succesfully! ')

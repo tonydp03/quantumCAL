@@ -1,3 +1,10 @@
+###############################################################
+###############################################################
+### **** POST-PROCESSING FUNCTIONS FOR TRACKSTER MERGE **** ###
+###############################################################
+###############################################################
+
+
 import numpy as np
 import pandas as pd
 import math
@@ -12,7 +19,7 @@ from grover_func import *
 def closestDistanceBetweenLines(line1, line2, clampAll=False,clampA0=False,clampA1=False,clampB0=False,clampB1=False):
 
     ''' Given two lines defined by numpy.array pairs (a0,a1,b0,b1)
-        Return the closest points on each segment and their distance
+        Return the closest points on each segment and their distances XY and Z
     '''
 
     a0 = line1[0]
@@ -150,10 +157,10 @@ def compatAndFit(dataset, trk_id1, trk_id2, dist, ang, pvalThrs, energyThrs, ene
     distXY = dist[0]
     distZ = dist[1]
 
-    lcs1_XYZ = trk1.loc[:,['x', 'y', 'z']].to_numpy() #.to_list()
-    lcs1_en = trk1.loc[:,'energy'].to_numpy() #.to_list()
-    lcs2_XYZ = trk2.loc[:,['x', 'y', 'z']].to_numpy() #.to_list()
-    lcs2_en = trk2.loc[:,'energy'].to_numpy() #.to_list()
+    lcs1_XYZ = trk1.loc[:,['x', 'y', 'z']].to_numpy() 
+    lcs1_en = trk1.loc[:,'energy'].to_numpy()
+    lcs2_XYZ = trk2.loc[:,['x', 'y', 'z']].to_numpy()
+    lcs2_en = trk2.loc[:,'energy'].to_numpy()
 
     linepts1, eigenvector1 = line_fit(lcs1_XYZ, lcs1_en)
     linepts2, eigenvector2 = line_fit(lcs2_XYZ, lcs2_en)
