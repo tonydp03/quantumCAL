@@ -223,12 +223,12 @@ if __name__ == "__main__":
                 # i,j,k = [1,13,4]
                 # i,j = [4,14] # also 2,14,2-3-4-6 --- for cubes with cardinality > 1                
 
-                # If overlapping==0
+                # If overlap==0
                 # condition_indices = np.where((gridStructure[:,0]>=cubesX[i*grover_size[0]]) & (gridStructure[:,0]<=cubesX[(i+1)*grover_size[0]-1]) 
                 #                         & (gridStructure[:,1]>=cubesY[j*grover_size[1]]) & (gridStructure[:,1]<=cubesY[(j+1)*grover_size[1]-1]) 
                 #                         & (gridStructure[:,2]>=cubesZ[k*grover_size[2]]) & (gridStructure[:,2]<=cubesZ[(k+1)*grover_size[2]-1])) # This condition indices is for no overlapping
 
-                # If overlapping == 1 (not working for overlapping > 1)
+                # If overlap == 1 (not working for overlapping > 1)
                 condition_indices = np.where((gridStructure[:,0]>=cubesX[i*(grover_size[0]-int(overlap[0]*np.heaviside(i-0.5,0)))]) & (gridStructure[:,0]<=cubesX[(i+1)*(grover_size[0]-int(overlap[0]*np.heaviside(i-0.5,0)))-int(np.heaviside(-i+0.5,0))]) 
                                         & (gridStructure[:,1]>=cubesY[j*(grover_size[1]-int(overlap[1]*np.heaviside(j-0.5,0)))]) & (gridStructure[:,1]<=cubesY[(j+1)*(grover_size[1]-int(overlap[1]*np.heaviside(j-0.5,0)))-int(np.heaviside(-j+0.5,0))]) 
                                         & (gridStructure[:,2]>=cubesZ[k*(grover_size[2]-int(overlap[2]*np.heaviside(k-0.5,0)))]) & (gridStructure[:,2]<=cubesZ[(k+1)*(grover_size[2]-int(overlap[2]*np.heaviside(k-0.5,0)))-int(np.heaviside(-k+0.5,0))]))

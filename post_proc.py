@@ -192,7 +192,7 @@ def compatAndFit(dataset, trk_id1, trk_id2, dist, ang, pvalThrs, energyThrs, ene
             allZ = lcsTot[:,2]
             indices = np.argsort(allZ,)
             sorted_AllZ = np.flip(allZ[indices[::-1]]).tolist()
-            print(sorted_AllZ)
+            # print(sorted_AllZ)
             sorted_En = np.flip(lcsTotEn[indices[::-1]]).tolist()
             i = 0
             while(i<len(sorted_AllZ) - 1):
@@ -229,8 +229,33 @@ def mergeTrkDup(dataset, dist, ang, pvalThrs, energyThrs, energyThrsCumulative, 
         if(len(dupsId)>1):
             energiesTrk = [np.sum(dupsTrk[dupsTrk['TrkId']==j]['energy'].values) for j in dupsId]
             energiesTrk_idx = np.argsort(energiesTrk)[::-1] #order of the indices of the energies from highest to lowest
+            keep_merging = True
+            en_index = 0
+            while keep_merging:
+                # tmp_Trk = dupsTrk[energiesTrk_idx[en_index]] -> doesn't work because it's not a np.array but a dataframe
+                # tmp_Trk = dupsTrk[dupsTrk['TrkId'] == dupsId[energiesTrk_idx[en_index]]] ---> we don't need it because we pass dupsTrk to compatAndFit function
+                indices = np.delete(energiesTrk_idx, en_index)
+                for j in indices:
+                    trk_merge = compatAndFit(dupsTrk, dupsId[energiesTrk_idx[en_index]], dupsId[j], dist, ang, pvalThrs, energyThrs, energyThrsCumulative, zTolerance)
+                    if(trk_merge):
+                        ##### merge tracksters (modify dupsId and dupsTrk) and redefine energiesTrk_idx and energiesTrk
+                        # dupsId = np.delete(dupsId, j) --> remove the index from the list of the indices >>>>>>> DOESN'T WORK! BECAUSE energiesTrk_idx[en_index] BECOMES OUT OF RANGE
+                        # dupsTrk.loc[dupsTrk.TrkId==dupsId[j], 'TrkId'] = dupsId[energiesTrk_idx[en_index]] --> change the id of the other trackster with the id of the most energetic                      
+                        # dupsTrk is not really necessary and the line above produces a warning because it's a copy of the dataframe
+
+                        #### redefine en_index = 0 ---> pensarci! 
+                        
+                        ###### CHANGE TRKID IN DATASET NOT DUPSTRK WHEN MERGING!!! (Tested and working)
+                        dataset.loc[dataset.TrkId==dupsId[j], 'TrkId'] = dupsId[energiesTrk_idx[en_index]] #this is necessary, but we can avoid to have dupsTrk in return from findDuplicates
+
+                if(not trk_merge):
+                    en_index += 1
+                if(en_index==len(energiesTrk_idx)):
+                    keep_merging = False
+
+
             # while(there is something to merge) merge 1 and 2, then try the new and 3, etc...
-###### CHANGE TRKID IN DATASET NOT DUPSTRK WHEN MERGING!!! 
+
 
     # find duplicates
     # check compatibility
@@ -276,8 +301,29 @@ if __name__=='__main__':
 
     lcid = 379.0
     trkids, trks = findDuplicates(df, lcid)
-    print(trkids)
-    print(trks)
-    energiesTrk = [np.sum(trks[trks['TrkId']==j]['energy'].values) for j in trkids]
-    print(energiesTrk)
-    print(np.argsort(energiesTrk)[::-1])
+    # print(trkids)
+    # print(trks)
+    energiesTrk = [np.sum(df[df['TrkId']==j]['energy'].values) for j in trkids]
+    energiesTrk_idx = np.argsort(energiesTrk)[::-1] #order of the indices of the energies from highest to lowest
+    # print(energiesTrk)
+    # print(energiesTrk_idx)
+    en_index = 0
+    # print(energiesTrk_idx[en_index])
+    # tmp_Trk = trks[trks['TrkId'] == trkids[energiesTrk_idx[en_index]]]
+    # print(tmp_Trk)
+    print(energiesTrk_idx)
+    indices = np.delete(energiesTrk_idx, en_index)
+    print(indices)
+    print(energiesTrk_idx)
+    # print('\n')
+    print(df[df.TrkId==trkids[energiesTrk_idx[en_index]]])
+    for j in indices:
+        print('\n')
+        print(j)
+        trk_merge = compatAndFit(df, trkids[energiesTrk_idx[en_index]], trkids[j], dist, ang, pvalThrs, energyThrs, energyThrsCumulative, zTolerance)
+        if(trk_merge):
+            df.loc[df.TrkId==trkids[j], 'TrkId'] = trkids[energiesTrk_idx[en_index]]   
+            trkids = np.delete(trkids, j)
+    # print(trkids)
+    # print(len(trkids))
+    
