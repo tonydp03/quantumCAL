@@ -16,6 +16,7 @@ from plot_utils import *
 import matplotlib.pyplot as plt
 import itertools
 from copy import deepcopy
+from post_proc import *
 
 def createGrid(x,y,z):
     gridstructure = []
@@ -37,47 +38,6 @@ def fillTheGrid(gridstructure, x, y, z, layer, energy, lcid, lxy, lz):
         gridstructure[condition_found, 5][0][0].append(np.array([x[i],y[i],z[i],layer[i],energy[i],lcid[i]]))
 
     return gridstructure
-
-def trkIsValid(lcInTrackster, energyThrs, energyThrsCumulative, pThrs):
-    lcEnergy = [[lc_energy[4] for lc_energy in lc] for lc in lcInTrackster]
-    energyIndices = [[i for i in range(len(energies))] for energies in lcEnergy]
-
-    allPaths = list(itertools.product(*energyIndices))
-    lcXYZ = [[lcInfo[:3] for lcInfo in lc] for lc in lcInTrackster]
-
-    totEnDiff = []
-    totPVal = []
-    for path in allPaths:
-        enDiff = 0
-        points = [lcXYZ[i][k] for i,k in enumerate(path)]
-        energies = [lcEnergy[i][k] for i,k in enumerate(path)]
-        pval = pval_fit(points, energies)
-        if(pval > pThrs):
-            pval = float('inf')
-            # pval = 1
-        for i,k in enumerate(path):
-            if(i>0):
-                enContr = np.abs((lcEnergy[i][k] - curr)/(lcEnergy[i][k] + curr))
-                if(enContr < energyThrs):
-                    enDiff += enContr
-                else:
-                    enDiff += float('inf')
-            curr = lcEnergy[i][k]
-        if(enDiff > energyThrsCumulative*len(energies)): # we multiply the energyThrsCumulative by the number of LCs
-            totEnDiff.append(float('inf'))
-        else:
-            totEnDiff.append(enDiff/len(path))
-        totPVal.append(pval)
-    
-    totDiff = [np.sqrt(totEnDiff[i] * totPVal[i]) for i in range(len(allPaths))]
-    minTotDiff = np.min(totDiff)
-    argMinTotDiff = np.where(totDiff == minTotDiff)[0][0]
-    minIndices = allPaths[argMinTotDiff] 
-
-    if(np.isinf(minTotDiff)):
-        return []
-    else:
-        return [lcInTrackster[i][minIndices[i]] for i in range(len(minIndices))]
 
 
 if __name__ == "__main__":
