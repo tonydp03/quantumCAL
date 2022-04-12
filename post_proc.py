@@ -12,6 +12,9 @@ import math
 from plot_utils import *
 import matplotlib.pyplot as plt
 from grover_func import *
+from copy import deepcopy
+from tqdm import tqdm
+import warnings
 
 #'x', 'y', 'z', 'layer', 'energy', 'LCID', 'TrkId'
 
@@ -81,7 +84,7 @@ def closestDistanceBetweenLines(line1, line2, clampAll=False,clampA0=False,clamp
     B = b1 - b0
     magA = np.linalg.norm(A)
     magB = np.linalg.norm(B)
-    
+
     _A = A / magA
     _B = B / magB
     
@@ -181,14 +184,23 @@ def closestDistanceBetweenLines(line1, line2, clampAll=False,clampA0=False,clamp
     # return pA,pB,np.linalg.norm(pA-pB)
     return pA,pB,distXY,distZ
 
+def lcLocalDensity(dataset, lc_id):
+    layer = dataset[dataset['LCID']==lc_id]['layer'].values
+    layer = layer[0]
+    layer_enFlow = [layer-2, layer-1, layer+1, layer+2]
+    energyFlow = dataset[dataset['layer'].isin(layer_enFlow)]['energy'].values
+
+    return np.mean(energyFlow)
 
 def findDuplicates(dataset, lc_id):
     dup = dataset[dataset['LCID']==lc_id]
-    if(len(dup)==1):
+    if(len(dup)==0):
+        return list(), list()
+    elif(len(dup)==1):
         return dup['TrkId'].values, list()
     else:
         trk_ids = dup['TrkId'].values
-        trks = dataset[dataset['TrkId'].isin(trk_ids)]
+        trks = deepcopy(dataset[dataset['TrkId'].isin(trk_ids)])
         return trk_ids, trks
 
 
@@ -220,9 +232,11 @@ def compatAndFit(dataset, trk_id1, trk_id2, dist, ang, pThrs, energyThrs, energy
         _, idx = np.unique(lcsTot, axis=0, return_index=True)
         lcsTot = lcsTot[np.sort(idx)]
         lcsTotEn = np.concatenate((lcs1_en, lcs2_en))
-        _, idxEn = np.unique(lcsTotEn, axis=0, return_index=True)
-        lcsTotEn = lcsTotEn[np.sort(idxEn)]
-
+        # _, idxEn = np.unique(lcsTotEn, axis=0, return_index=True)
+        #  lcsTotEn = lcsTotEn[np.sort(idxEn)]
+        lcsTotEn = lcsTotEn[np.sort(idx)]
+        
+        
         # calculate pval
         pval = pval_fit(lcsTot, lcsTotEn)
         if(pval > pThrs):
@@ -259,7 +273,12 @@ def compatAndFit(dataset, trk_id1, trk_id2, dist, ang, pThrs, energyThrs, energy
 
 
 def mergedTrkIsValid(dataset, trkId, energyThrs, energyThrsCumulative, pThrs, zTolerance):
+
     trk = dataset[dataset['TrkId']==trkId].sort_values(by=['layer'])
+
+    layerIds = np.unique(trk['layer'].values)
+    if(len(layerIds) <= 2):
+        return False
 
     lcs_XYZ = trk.loc[:,['x', 'y', 'z']].to_numpy() 
     lcs_en = trk.loc[:,'energy'].to_numpy()
@@ -297,11 +316,12 @@ def mergedTrkIsValid(dataset, trkId, energyThrs, energyThrsCumulative, pThrs, zT
             return False            
     return True
 
-
 def mergeTrkDup(dataset, dist, ang, pThrs, energyThrs, energyThrsCumulative, zTolerance):
     lc_ids = np.unique(dataset['LCID'].values)
+    pbar = tqdm(total=len(lc_ids))
     for i in lc_ids:
-        dupsId, dupsTrk = findDuplicates(dataset, i) 
+        # print('************ ', i)
+        dupsId, dupsTrk = findDuplicates(dataset, i)
         old_dupsId = dupsId
         if(len(dupsId)>1):
             energiesTrk = [np.sum(dupsTrk[dupsTrk['TrkId']==j]['energy'].values) for j in dupsId]
@@ -315,7 +335,7 @@ def mergeTrkDup(dataset, dist, ang, pThrs, energyThrs, energyThrsCumulative, zTo
                     if(trk_merge):
                         ##### merge tracksters (modify dupsId and dupsTrk) and redefine energiesTrk_idx and energiesTrk
                         dupsTrk.loc[dupsTrk.TrkId==dupsId[j], 'TrkId'] = dupsId[energiesTrk_idx[en_index]] # change the id of the other trackster with the id of the most energetic 
-                        dupsTrk.drop_duplicates() # remove duplicate (LC) rows  
+                        dupsTrk = dupsTrk.drop_duplicates(subset = ['LCID', 'TrkId']) # remove duplicate (LC) rows  
                         dupsId = np.delete(dupsId, j) #--> remove the index from the list of the indices 
 
                         # redefine these
@@ -323,53 +343,86 @@ def mergeTrkDup(dataset, dist, ang, pThrs, energyThrs, energyThrsCumulative, zTo
                         energiesTrk_idx = np.argsort(energiesTrk)[::-1] #order of the indices of the energies from highest to lowest
                         en_index = 0
                         break
-
-                        ###### CHANGE TRKID IN DATASET NOT DUPSTRK WHEN MERGING!!! (Tested and working)
-                        # dataset.loc[dataset.TrkId==dupsId[j], 'TrkId'] = dupsId[energiesTrk_idx[en_index]] #this is necessary, but we can avoid to have dupsTrk in return from findDuplicates
-
-                    if(not trk_merge):
+                    else:
                         en_index += 1
-                if(en_index==len(energiesTrk_idx)):
+                if(en_index==(len(energiesTrk_idx)-1) or len(indices)==0):
                     keep_merging = False
 
+            
             # If some Tracksters were not merged, assign energy fraction to duplicate LC with index i
             dupLC = dupsTrk[dupsTrk['LCID']==i]
-            numDup = len(dupLC)
-            enDup = numDup['energy'].values
-            dupsTrk.loc[dupsTrk.LCID==i, 'energy'] = enDup/numDup
+            # numDup = len(dupLC)
+            enDupLC = dupLC['energy'].values
+            # dupsTrk.loc[dupsTrk.LCID==i, 'energy'] = enDup/numDup # here divide by the number of occurencies of the LC in the Trks
+            totEnergyDensity = 0
+            for id in dupsId:
+                density = lcLocalDensity(dupsTrk[dupsTrk['TrkId']==id], i)
+                totEnergyDensity += density
+                dupsTrk.loc[(dupsTrk.LCID==i) & (dupsTrk.TrkId==id), 'energy'] = enDupLC[0] * density
+
+            dupsTrk.loc[dupsTrk.LCID==i, 'energy'] /= totEnergyDensity # here 'normalize' the energy
             
-            existsFalse = True
-            while existsFalse:
+
+
+######### ALL GOOD UNTIL HERE #########
+
+
+            existsInvalid = True
+            while existsInvalid:
                 invalidTrks = list()
                 for trkId in dupsId:
                     if(not mergedTrkIsValid(dupsTrk, trkId, energyThrs, energyThrsCumulative, pThrs, zTolerance)):
                         invalidTrks.append(trkId)
+                        if(len(dupsId) == 1):
+                            ######## CHECK THIS LINE UNDER                      
+                            return dataset.drop(dataset[(dataset['TrkId'].isin(old_dupsId))].index, axis=0)
 
+                if(len(invalidTrks)==0 or len(dupsTrk)==0):
+                    existsInvalid = False
+                    break
+                else:
                 ###### if exist invalid tracksters, remove common LC from least energetic and recompute energy of the other trackster
-                ###### if LC is removed check if its trackster is valid; if not, kill it --- remove from dataset
-                ####### -> NB: this part is correct but we need to distribute the energy of common LC to the tracksters weighing it with the local energy density
+                ###### if LC in common is not in invalid trackster anymore, remove the trackster, else do the instructions below
+                    if(len(dupsId) != 1):
+                        leastEnIndex = energiesTrk_idx[-1]
+                        leastTrkId = dupsId[leastEnIndex]
+                        dupsId = np.delete(dupsId, leastEnIndex)
+                    else:
+                        leastTrkId = dupsId[0]
+                        dupsTrk = dupsTrk.drop(dupsTrk[(dupsTrk['TrkId']==leastTrkId) & (dupsTrk['LCID']==id)].index, axis=0)
+                        
+                    dupsTrk = dupsTrk.drop(dupsTrk[(dupsTrk['TrkId']==leastTrkId) & (dupsTrk['LCID']==id)].index, axis=0)
+                    # # redefine these
+                    # energiesTrk = [np.sum(dupsTrk[dupsTrk['TrkId']==j]['energy'].values) for j in dupsId]
+                    # energiesTrk_idx = np.argsort(energiesTrk)[::-1] #order of the indices of the energies from highest to lowest
 
-                if(len(invalidTrks)==0):
-                    existsFalse = False
+                    # check that the trackster without the LC in common is still valid
+                    if(not mergedTrkIsValid(dupsTrk, leastTrkId, energyThrs, energyThrsCumulative, pThrs, zTolerance)):
+                        dupsTrk = dupsTrk.drop(dupsTrk[(dupsTrk['TrkId']==leastTrkId)].index, axis=0)
+
+                    if(len(dupsId) > 0):
+                        totEnergyDensity = 0
+                        for id in dupsId:
+                            density = lcLocalDensity(dupsTrk[dupsTrk['TrkId']==id], i)
+                            totEnergyDensity += density
+                            dupsTrk.loc[(dupsTrk.LCID==i) & (dupsTrk.TrkId==id), 'energy'] = enDupLC[0] * density
+
+                        dupsTrk.loc[dupsTrk.LCID==i, 'energy'] /= totEnergyDensity # here 'normalize' the energy
 
             #### Update dataset with dupsTrk (removing the older tracksters using old_dupsId)
+            dataset = dataset.drop(dataset[(dataset['TrkId'].isin(old_dupsId))].index, axis=0)
+            if(len(dupsTrk) != 0):
+                dataset_toMerge = [dataset, dupsTrk]
+                dataset = pd.concat(dataset_toMerge, ignore_index=True)
 
+        pbar.update(1)
+        # sys.exit()
+    if (len(dataset['LCID'].values) != len(np.unique(dataset['LCID'].values))):
+        print('******* ERRORE! DUPLICATES PRESENT! *******')
+        sys.exit()
 
-
-    # find duplicates
-    # check compatibility
-    # if compatibily == True, fit the final trackster and apply energy criteria
-    return True
-
-
-
-
-
-
-
-
-
-
+    pbar.close()
+    return dataset
 
 
 def mergeTrkAll(dataset, dist, ang, pThrs, energyThrs, energyThrsCumulative, zTolerance):
@@ -385,58 +438,53 @@ def mergeTrkAll(dataset, dist, ang, pThrs, energyThrs, energyThrsCumulative, zTo
 
 
 if __name__=='__main__':
-    df = pd.read_csv('trackstersGrover_gTh2.0_pTh0.99.csv')
-    trk_id1 = 0
-    trk_id2 = 1
-    dist = [10,10]
-    ang = np.pi
-    pThrs = 1
-    energyThrs = 1
-    energyThrsCumulative = 0.8
+
+    # warnings.filterwarnings("ignore")
+
+    dataset = pd.read_csv('trackstersGrover_gTh2.0_pTh0.99.csv')
+
+    dist = [0.1,0.1] # [10,10]
+    ang = 0.01 #np.pi
+    pThrs = 0.99 #1
+    energyThrs = 0.5
+    energyThrsCumulative = 0.4
     zTolerance = 0.5
 
-    # res = compatAndFit(df, trk_id1, trk_id2, dist, ang, pThrs, energyThrs, energyThrsCumulative, zTolerance)
-    # print(res)
+    dataset = mergeTrkDup(dataset, dist, ang, pThrs, energyThrs, energyThrsCumulative, zTolerance)
 
-    lcid = 379.0
-    trkids, trks = findDuplicates(df, lcid)
-    enDup = trks['energy'].values
-    enDup = enDup[:3]
-    # print(enDup/enDup)
-    trks.loc[trks.LCID==379,'energy'] = enDup/3
-    print(trks)
-    trkToCheck = trks[trks['TrkId']==1][['x', 'y', 'z', 'layer', 'energy', 'LCID']].to_numpy()
-    trk = [k for k in trkToCheck]
-    print(trk[0])
-    # trkToCheck = trkToCheck.to_numpy()
-    # print(trkToCheck)
+    fig = plt.figure(figsize = (30,25))
+    trk_id =  np.unique(dataset['TrkId'].values)
+    # print('TRK_IDs: ', trk_id)
+    xs = list()
+    ys = list()
+    zs = list()
+    ranges = list()
 
-'''
-    old_dupsId = trkids
-    # print(trkids)
-    print(trks)
-    energiesTrk = [np.sum(df[df['TrkId']==j]['energy'].values) for j in trkids]
-    energiesTrk_idx = np.argsort(energiesTrk)[::-1] #order of the indices of the energies from highest to lowest
-    # print(energiesTrk)
-    # print(energiesTrk_idx)
-    en_index = 0
-    # print(energiesTrk_idx[en_index])
-    # tmp_Trk = trks[trks['TrkId'] == trkids[energiesTrk_idx[en_index]]]
-    # print(tmp_Trk)
-    print(energiesTrk_idx)
-    indices = np.delete(energiesTrk_idx, en_index)
-    print(indices)
-    print(energiesTrk_idx)
-    # print('\n')
-    print(df[df.TrkId==trkids[energiesTrk_idx[en_index]]])
-    for j in indices:
-        print('\n')
-        print(j)
-        trk_merge = compatAndFit(df, trkids[energiesTrk_idx[en_index]], trkids[j], dist, ang, pThrs, energyThrs, energyThrsCumulative, zTolerance)
-        if(trk_merge):
-            df.loc[df.TrkId==trkids[j], 'TrkId'] = trkids[energiesTrk_idx[en_index]]   
-            trkids = np.delete(trkids, j)
-    print(trkids)
-    print(old_dupsId)
-    # print(len(trkids))
-'''
+    for id in trk_id:
+        x_lcs = dataset[dataset['TrkId'] == id]['x'].values
+        y_lcs = dataset[dataset['TrkId'] == id]['y'].values
+        z_lcs = dataset[dataset['TrkId'] == id]['z'].values
+        
+        xs.append(x_lcs)
+        ys.append(y_lcs)
+        zs.append(z_lcs)
+        
+        ids = [id for i in range(len(x_lcs))]
+        if(id == 0):            
+            ranges = [[np.min(x_lcs), np.max(x_lcs)], [np.min(y_lcs), np.max(y_lcs)], [np.min(z_lcs), np.max(z_lcs)]]
+        else:
+            if(np.min(x_lcs)<ranges[0][0]):
+                ranges[0][0] = np.min(x_lcs)
+            if(np.max(x_lcs)>ranges[0][1]):
+                ranges[0][1] = np.max(x_lcs)
+            if(np.min(y_lcs)<ranges[1][0]):
+                ranges[1][0] = np.min(y_lcs)
+            if(np.max(y_lcs)>ranges[1][1]):
+                ranges[1][1] = np.max(y_lcs)
+            if(np.min(z_lcs)<ranges[2][0]):
+                ranges[2][0] = np.min(z_lcs)
+            if(np.max(z_lcs)>ranges[2][1]):
+                ranges[2][1] = np.max(z_lcs)
+
+    plots3DwithProjection(fig, xs, ys, zs, ranges)
+    plt.savefig("./mergedTrks.png")
