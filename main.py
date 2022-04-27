@@ -14,7 +14,6 @@ from grover_op import *
 import argparse
 from plot_utils import *
 import matplotlib.pyplot as plt
-import itertools
 from copy import deepcopy
 from post_proc import *
 

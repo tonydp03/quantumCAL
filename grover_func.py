@@ -281,6 +281,7 @@ def pca(data, weights):
         sorted_eigenvectors = eigen_vectors[:,sorted_index].T
     except:
         print("Not Converged")
+        print(N)
         sorted_index = [0,0,0]
         # sorted_eigenvalue = [0,0,0]
         sorted_eigenvectors = [0,0,0]
