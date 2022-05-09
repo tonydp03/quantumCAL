@@ -65,13 +65,13 @@ if __name__ == "__main__":
     grover_size = [7,4,4]
 
     # Define overlap parameter
-    overlap = [1,1,1]
+    overlap = [1,1,2]
     if(overlap[0]>=grover_size[0] or overlap[1]>=grover_size[1] or overlap[2]>=grover_size[2]):
         print('Overlap cannot be larger than grover_size!')
         sys.exit()
 
     # Set the thresholds
-    gridThreshold = 2. #4 # to define the tile size
+    gridThreshold = 2.5 # to define the tile size
     distThreshold = 3.5 
     enThreshold = 0.7
     enThresholdCumulative = 0.6
@@ -145,7 +145,7 @@ if __name__ == "__main__":
         cubesY.append(minY+tileL/2 + i*tileL)
 
     try:
-        gridStructure = np.load('grid_overlap.npy', allow_pickle=True)  
+        gridStructure = np.load("grid_gTh" + str(gridThreshold) + ".npy", allow_pickle=True)  
     except:
         # Now create the grid with each cube represented by a list (x,y,z,k,0) where k is the layer number and 0 is the cardinality (# of points in the cube)
         print('Creating the grid...')
@@ -161,7 +161,7 @@ if __name__ == "__main__":
         fillTheGrid(gridStructure, allX, allY, allZ, allLayer, allEnergies, allID, tileL, zTolerance)
         print('Grid filled!')
 
-        np.save('grid_overlap.npy', gridStructure, allow_pickle=True)
+        np.save("grid_gTh" + str(gridThreshold) + ".npy", gridStructure, allow_pickle=True)
 
     # Choosing thresholds:
     thresholds = [gridThreshold,gridThreshold,gridThreshold,gridThreshold]
@@ -188,9 +188,13 @@ if __name__ == "__main__":
                 #                         & (gridStructure[:,2]>=cubesZ[k*grover_size[2]]) & (gridStructure[:,2]<=cubesZ[(k+1)*grover_size[2]-1])) # This condition indices is for no overlapping
 
                 # If overlap == 1 (not working for overlapping > 1)
-                condition_indices = np.where((gridStructure[:,0]>=cubesX[i*(grover_size[0]-int(overlap[0]*np.heaviside(i-0.5,0)))]) & (gridStructure[:,0]<=cubesX[(i+1)*(grover_size[0]-int(overlap[0]*np.heaviside(i-0.5,0)))-int(np.heaviside(-i+0.5,0))]) 
-                                        & (gridStructure[:,1]>=cubesY[j*(grover_size[1]-int(overlap[1]*np.heaviside(j-0.5,0)))]) & (gridStructure[:,1]<=cubesY[(j+1)*(grover_size[1]-int(overlap[1]*np.heaviside(j-0.5,0)))-int(np.heaviside(-j+0.5,0))]) 
-                                        & (gridStructure[:,2]>=cubesZ[k*(grover_size[2]-int(overlap[2]*np.heaviside(k-0.5,0)))]) & (gridStructure[:,2]<=cubesZ[(k+1)*(grover_size[2]-int(overlap[2]*np.heaviside(k-0.5,0)))-int(np.heaviside(-k+0.5,0))]))
+                # condition_indices = np.where((gridStructure[:,0]>=cubesX[i*(grover_size[0]-int(overlap[0]*np.heaviside(i-0.5,0)))]) & (gridStructure[:,0]<=cubesX[(i+1)*(grover_size[0]-int(overlap[0]*np.heaviside(i-0.5,0)))-int(np.heaviside(-i+0.5,0))]) 
+                #                         & (gridStructure[:,1]>=cubesY[j*(grover_size[1]-int(overlap[1]*np.heaviside(j-0.5,0)))]) & (gridStructure[:,1]<=cubesY[(j+1)*(grover_size[1]-int(overlap[1]*np.heaviside(j-0.5,0)))-int(np.heaviside(-j+0.5,0))]) 
+                #                         & (gridStructure[:,2]>=cubesZ[k*(grover_size[2]-int(overlap[2]*np.heaviside(k-0.5,0)))]) & (gridStructure[:,2]<=cubesZ[(k+1)*(grover_size[2]-int(overlap[2]*np.heaviside(k-0.5,0)))-int(np.heaviside(-k+0.5,0))]))
+
+                condition_indices = np.where((gridStructure[:,0]>=cubesX[i*(grover_size[0]-int(overlap[0]*np.heaviside(i-0.5,0)))]) & (gridStructure[:,0]<=cubesX[(i+1)*grover_size[0]-i*int(overlap[0]*np.heaviside(i-0.5,0))-1]) 
+                                        & (gridStructure[:,1]>=cubesY[j*(grover_size[1]-int(overlap[1]*np.heaviside(j-0.5,0)))]) & (gridStructure[:,1]<=cubesY[(j+1)*grover_size[1]-j*int(overlap[1]*np.heaviside(j-0.5,0))-1]) 
+                                        & (gridStructure[:,2]>=cubesZ[k*(grover_size[2]-int(overlap[2]*np.heaviside(k-0.5,0)))]) & (gridStructure[:,2]<=cubesZ[(k+1)*grover_size[2]-k*int(overlap[2]*np.heaviside(k-0.5,0))-1]))
 
                 gridTest = deepcopy(gridStructure[condition_indices])
 
@@ -204,6 +208,10 @@ if __name__ == "__main__":
 
                 temp = gridTest[np.where(gridTest[:,4]!=0)]
                 occupied_cubes = [np.array(k) for k in temp]
+
+                # If there are less than 3 points in gridTest, exit the for loop
+                if(len(occupied_cubes)<=2):
+                    break
 
                 # Use the function "points_layer_collection" for splitting the point into the different layers:
                 all_points_ordered = points_layer_collection(occupied_cubes, dataset)
@@ -297,7 +305,7 @@ if __name__ == "__main__":
         # break            
     # print('\n **** Grover routines ended ****\n')
 
-    allTrksFoundQuantumly.to_csv("trackstersGrover_gTh" + str(gridThreshold) + "_pTh"  + str(pThreshold) + ".csv")
+    allTrksFoundQuantumly.to_csv("trackstersGrover_gTh" + str(gridThreshold) + "_pTh"  + str(pThreshold) + "_overlap" + str(overlap[0]) + str(overlap[1]) + str(overlap[2]) +".csv")
 
 
     fig = plt.figure(figsize = (30,25))
@@ -335,5 +343,5 @@ if __name__ == "__main__":
                 ranges[2][1] = np.max(z_lcs)
 
     plots3DwithProjection(fig, xs, ys, zs, ranges)
-    plt.savefig("./trk_overlap_gTh" + str(gridThreshold) + "_pTh"  + str(pThreshold) + "_new.png")
+    plt.savefig("./trackstersGrover_gTh" + str(gridThreshold) + "_pTh"  + str(pThreshold) + "_overlap" + str(overlap[0]) + str(overlap[1]) + str(overlap[2]) + ".png")
     print('Grover search ended succesfully! ')
