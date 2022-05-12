@@ -1,5 +1,7 @@
 import random
 import matplotlib.pyplot as plt 
+import pandas as pd
+import numpy as np
 
 def plots3DwithProjection(fig, x, y, z, ranges, save = ''):
     '''

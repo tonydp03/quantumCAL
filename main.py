@@ -43,6 +43,11 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--dir', type=str, default='./')
+    parser.add_argument('--grid', type=float, default='2.')
+    parser.add_argument('--en', type=float, default='0.6')
+    parser.add_argument('--encum', type=float, default='0.5')
+    parser.add_argument('--pval', type=float, default='0.99')
+
     args = parser.parse_args()
     
     # Set directory
@@ -65,17 +70,17 @@ if __name__ == "__main__":
     grover_size = [7,4,4]
 
     # Define overlap parameter
-    overlap = [1,1,2]
+    overlap = [2,2,2]
     if(overlap[0]>=grover_size[0] or overlap[1]>=grover_size[1] or overlap[2]>=grover_size[2]):
         print('Overlap cannot be larger than grover_size!')
         sys.exit()
 
     # Set the thresholds
-    gridThreshold = 2.5 # to define the tile size
+    gridThreshold = args.grid # to define the tile size
     distThreshold = 3.5 
-    enThreshold = 0.7
-    enThresholdCumulative = 0.6
-    pThreshold = .99
+    enThreshold = args.en
+    enThresholdCumulative = args.encum
+    pThreshold = args.pval
 
     #### Can add small padding
     minX = min(allX)
@@ -211,7 +216,7 @@ if __name__ == "__main__":
 
                 # If there are less than 3 points in gridTest, exit the for loop
                 if(len(occupied_cubes)<=2):
-                    break
+                    continue
 
                 # Use the function "points_layer_collection" for splitting the point into the different layers:
                 all_points_ordered = points_layer_collection(occupied_cubes, dataset)
@@ -300,12 +305,12 @@ if __name__ == "__main__":
                     #     print('\n*** Distance conditions NOT satisfied! No more Tracksters to be found! ***')
                     # print("distances of last point: ",dist_tmp)
 
-        #         break
+                # break
         #     break
         # break            
     # print('\n **** Grover routines ended ****\n')
 
-    allTrksFoundQuantumly.to_csv("trackstersGrover_gTh" + str(gridThreshold) + "_pTh"  + str(pThreshold) + "_overlap" + str(overlap[0]) + str(overlap[1]) + str(overlap[2]) +".csv")
+    allTrksFoundQuantumly.to_csv("Tracksters_gTh" + str(gridThreshold) + "_pTh"  + str(pThreshold) + "_en" + str(enThreshold) + "_encm" + str(enThresholdCumulative) + "_overlap" + str(overlap[0]) + str(overlap[1]) + str(overlap[2]) +".csv")
 
 
     fig = plt.figure(figsize = (30,25))
@@ -343,5 +348,5 @@ if __name__ == "__main__":
                 ranges[2][1] = np.max(z_lcs)
 
     plots3DwithProjection(fig, xs, ys, zs, ranges)
-    plt.savefig("./trackstersGrover_gTh" + str(gridThreshold) + "_pTh"  + str(pThreshold) + "_overlap" + str(overlap[0]) + str(overlap[1]) + str(overlap[2]) + ".png")
+    plt.savefig("Tracksters_gTh" + str(gridThreshold) + "_pTh"  + str(pThreshold) + "_en" + str(enThreshold) + "_encm" + str(enThresholdCumulative) + "_overlap" + str(overlap[0]) + str(overlap[1]) + str(overlap[2]) +".png")
     print('Grover search ended succesfully! ')
