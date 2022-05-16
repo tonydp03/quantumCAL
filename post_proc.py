@@ -16,6 +16,7 @@ from copy import deepcopy
 # from tqdm import tqdm
 import warnings
 import itertools
+import argparse
 
 #'x', 'y', 'z', 'layer', 'energy', 'LCID', 'TrkId'
 
@@ -80,7 +81,7 @@ def closestDistanceBetweenLines(line1, line2, clampAll=False,clampA0=False,clamp
         clampB1=True
 
 
-    # Calculate denomitator
+    # Calculate denominator
     A = a1 - a0
     B = b1 - b0
     magA = np.linalg.norm(A)
@@ -230,11 +231,14 @@ def compatAndFit(dataset, trk_id1, trk_id2, dist, ang, pThrs, energyThrs, energy
     linepts1, eigenvector1 = line_fit(lcs1_XYZ, lcs1_en)
     linepts2, eigenvector2 = line_fit(lcs2_XYZ, lcs2_en)
 
-    alignment = np.arccos(np.dot(eigenvector1, eigenvector2))
-    if(alignment < 1.e-7):
-        _, _, distanceXY, distanceZ = closestDistanceBetweenLines(linepts1, linepts2, clampAll=True)
-    else:
-        _, _, distanceXY, distanceZ = closestDistanceBetweenLines(linepts1, linepts2, clampAll=False)
+    prod = np.dot(eigenvector1, eigenvector2)
+    if (prod > 1):
+        prod = 1.
+    alignment = np.arccos(prod)
+    # if(alignment < 1.e-7):
+    _, _, distanceXY, distanceZ = closestDistanceBetweenLines(linepts1, linepts2, clampAll=True)
+    # else:
+    #     _, _, distanceXY, distanceZ = closestDistanceBetweenLines(linepts1, linepts2, clampAll=False)
 
     if (alignment > ang or distanceXY > distXY or distanceZ > distZ):
         return False
@@ -246,11 +250,10 @@ def compatAndFit(dataset, trk_id1, trk_id2, dist, ang, pThrs, energyThrs, energy
         # _, idxEn = np.unique(lcsTotEn, axis=0, return_index=True)
         #  lcsTotEn = lcsTotEn[np.sort(idxEn)]
         lcsTotEn = lcsTotEn[np.sort(idx)]
-        
-        
-        ######## find energy-weighed mean point for each layer (points weighed with their energies
-        ######## before calling pval_fit
 
+
+        ######## find energy-weighed mean point for each layer (points weighed with their energies)
+        ######## before calling pval_fit
 
         # calculate pval
         pval = pval_fit(lcsTot, lcsTotEn)
@@ -482,7 +485,7 @@ def mergeTrkAll(dataset, dist, ang, pThrs, energyThrs, energyThrsCumulative, zTo
                         en_index += 1
                 if(en_index==(len(energiesNeighbourTrk_idx)-1) or len(indices)==1):
                     keep_merging = False
-                    print('********* Stop merging ********* ')
+                    # print('********* Stop merging ********* ')
    
             #### Update dataset with neighbour_Trks (removing the older tracksters using old_dupsId)
             dataset = dataset.drop(dataset[(dataset['TrkId'].isin(old_TrksIdx))].index, axis=0)
@@ -503,21 +506,32 @@ def mergeTrkAll(dataset, dist, ang, pThrs, energyThrs, energyThrsCumulative, zTo
 if __name__=='__main__':
 
     # warnings.filterwarnings("ignore")
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--dir', type=str, default='./')
+    parser.add_argument('--grid', type=float, default='2.5')
+    parser.add_argument('--en', type=float, default='0.7')
+    parser.add_argument('--encum', type=float, default='0.6')
+    parser.add_argument('--pval', type=float, default='0.99')
 
-    dataset = pd.read_csv('trackstersGrover_gTh2.0_pTh0.99.csv')
+    args = parser.parse_args()
 
-    dist = [10,10] #[4,4] 
-    ang = np.pi #np.pi/4
-    pThrs = 0.99 #9999999 #1
-    energyThrs = 0.8
-    energyThrsCumulative = 0.6 
+    myDir = args.dir
+    dist = [7.5, 5] # XY and Z
+    ang = np.pi/3 #np.pi/4
+    pThreshold = 0.99 
+    enThreshold = 0.9
+    enThresholdCumulative = 0.8
     zTolerance = 0.5
+    overlap = [2,2,2]
 
-
-    dataset = mergeTrkDup(dataset, dist, ang, pThrs, energyThrs, energyThrsCumulative, zTolerance)
+    # dataset = pd.read_csv(myDir + "Tracksters_gTh" + str(args.grid) + "_pTh"  + str(args.pval) + "_en" + str(args.en) + "_encm" + str(args.encum) + "_overlap" + str(overlap[0]) + str(overlap[1]) + str(overlap[2]) +".csv")
+    dataset = pd.read_csv(myDir + "long_Tracksters_gTh" + str(args.grid) + "_pTh"  + str(args.pval) + "_en" + str(args.en) + "_encm" + str(args.encum) + "_overlap" + str(overlap[0]) + str(overlap[1]) + str(overlap[2]) +".csv")
+    
+    pThreshold = 0.99
+    dataset = mergeTrkDup(dataset, dist, ang, pThreshold, enThreshold, enThresholdCumulative, zTolerance)
     print('\n\n\n***** DUPLICATI TUTT APPOST *****\n\n\n')
 
-    dataset = mergeTrkAll(dataset, dist, ang, pThrs, energyThrs, energyThrsCumulative, zTolerance)
+    dataset = mergeTrkAll(dataset, dist, ang, pThreshold, enThreshold, enThresholdCumulative, zTolerance)
     print('***** ALL TUTT APPOST *****')
 
     fig = plt.figure(figsize = (30,25))
@@ -553,4 +567,5 @@ if __name__=='__main__':
                 ranges[2][1] = np.max(z_lcs)
 
     plots3DwithProjection(fig, xs, ys, zs, ranges)
-    plt.savefig("./mergedAllTrks.png")
+    # plt.savefig(myDir + "MergedTracksters_gTh" + str(args.grid) + "_pTh"  + str(args.pval) + "_en" + str(args.en) + "_encm" + str(args.encum) + "_overlap" + str(overlap[0]) + str(overlap[1]) + str(overlap[2]) +".png")
+    plt.savefig(myDir + "long_MergedTracksters_gTh" + str(args.grid) + "_pTh"  + str(args.pval) + "_en" + str(args.en) + "_encm" + str(args.encum) + "_overlap" + str(overlap[0]) + str(overlap[1]) + str(overlap[2]) +".png")

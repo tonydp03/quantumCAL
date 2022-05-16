@@ -92,7 +92,7 @@ def f_dist_t(trackster, dataset, input_form, point_other_layers = np.array([]), 
     dist_2 = 0.
     dist_3 = 0.
     
-    # Finding the ditances between all points in the trackster:
+    # Finding the distances between all points in the trackster:
     all_dist_0 = []
     for i in range(DimZ - 1):
         all_dist_0.append(f_dist(track[i], track[i + 1], dataset, in_form))

@@ -65,3 +65,50 @@ def plots3DwithProjection(fig, x, y, z, ranges, save = ''):
     # cbar = fig.colorbar(im, cax=cbar_ax, label = 'Rhits energy')
     # cbar.set_label("Rechits energy", fontsize = 50)
     # plt.savefig("./trk.png")
+
+if __name__ == "__main__":
+    
+    gridThreshold = 2.5 # to define the tile size
+    enThreshold = 0.6
+    enThresholdCumulative = 0.5
+    pThreshold = 0.99
+    overlap = [2,2,2]
+    
+    df = pd.read_csv("/Users/tony/Desktop/qTICL/results/new/Tracksters_gTh" + str(gridThreshold) + "_pTh"  + str(pThreshold) + "_en" + str(enThreshold) + "_encm" + str(enThresholdCumulative) + "_overlap" + str(overlap[0]) + str(overlap[1]) + str(overlap[2]) +".csv")
+
+    fig = plt.figure(figsize = (30,25))
+    trk_id =  np.unique(df['TrkId'].values)
+    # print('TRK_IDs: ', trk_id)
+    xs = list()
+    ys = list()
+    zs = list()
+    ranges = list()
+
+    for id in trk_id:
+        x_lcs = df[df['TrkId'] == id]['x'].values
+        y_lcs = df[df['TrkId'] == id]['y'].values
+        z_lcs = df[df['TrkId'] == id]['z'].values
+        
+        xs.append(x_lcs)
+        ys.append(y_lcs)
+        zs.append(z_lcs)
+        
+        ids = [id for i in range(len(x_lcs))]
+        if(id == 0):            
+            ranges = [[np.min(x_lcs), np.max(x_lcs)], [np.min(y_lcs), np.max(y_lcs)], [np.min(z_lcs), np.max(z_lcs)]]
+        else:
+            if(np.min(x_lcs)<ranges[0][0]):
+                ranges[0][0] = np.min(x_lcs)
+            if(np.max(x_lcs)>ranges[0][1]):
+                ranges[0][1] = np.max(x_lcs)
+            if(np.min(y_lcs)<ranges[1][0]):
+                ranges[1][0] = np.min(y_lcs)
+            if(np.max(y_lcs)>ranges[1][1]):
+                ranges[1][1] = np.max(y_lcs)
+            if(np.min(z_lcs)<ranges[2][0]):
+                ranges[2][0] = np.min(z_lcs)
+            if(np.max(z_lcs)>ranges[2][1]):
+                ranges[2][1] = np.max(z_lcs)
+
+    plots3DwithProjection(fig, xs, ys, zs, ranges)
+    plt.savefig("/Users/tony/Desktop/qTICL/results/new/Tracksters_gTh" + str(gridThreshold) + "_pTh"  + str(pThreshold) + "_en" + str(enThreshold) + "_encm" + str(enThresholdCumulative) + "_overlap" + str(overlap[0]) + str(overlap[1]) + str(overlap[2]) +".png")

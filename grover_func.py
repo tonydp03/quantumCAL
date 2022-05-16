@@ -16,6 +16,8 @@ from q_utilities import *
 from scipy.special import gamma
 from scipy.integrate import trapz
 import sys
+import argparse
+import pandas as pd
 
 ################
 ### *************** CHANGE OF COORDINATES *************** ###
@@ -295,14 +297,26 @@ def line_fit(data, weights):
     datamean, vv = pca(np.array(data), weights)
 
     # find the length of the segment such that it encompasses all the considered points.
-    max_dist = np.linalg.norm(data[-1] - data[0])
+    # max_dist = np.linalg.norm(data[-1] - data[0])
+    # maxZ = np.max(data[:,2])
+    # minZ = np.min(data[:,2])
+
+    maxZ = np.max([arr[2] for arr in data])
+    minZ = np.max([arr[2] for arr in data])
+
+    v_xy = np.sqrt(1-(np.dot(vv[0],np.array([0,0,1]))**2))
+    
+    
+    max_dist_pos = np.sqrt(((maxZ-datamean[2])**2)/(1-(v_xy**2)))
+    max_dist_neg = np.sqrt(((minZ-datamean[2])**2)/(1-(v_xy**2)))
     
     # calculate the line segment
-    linepts = vv[0] * np.mgrid[-max_dist:max_dist:2j][:, np.newaxis]
+    # linepts = vv[0] * np.mgrid[-max_dist:max_dist:2j][:, np.newaxis]
+    linepts = vv[0] * np.mgrid[-max_dist_neg:max_dist_pos:2j][:, np.newaxis]
 
     # shift by the mean to get the line in the right place
     linepts += datamean
-    
+
     # linepts_xy = linepts
     # linepts_etaphi = np.array([xyz_to_etaphiz(linepts_xy[0,0], linepts_xy[0,1], linepts_xy[0,2]),
     #                           xyz_to_etaphiz(linepts_xy[-1,0], linepts_xy[-1,1], linepts_xy[-1,2])])
@@ -370,7 +384,7 @@ if __name__=="__main__":
     ################
     ### CHECK THAT THE COORDINATE TRANSFORM WORKS FOR SINGLE POINT ###
     ################
-
+    '''
     Nx = random.randint(1,50)
     Ny = random.randint(1,50)
     Nz = random.randint(1,50)
@@ -466,5 +480,30 @@ if __name__=="__main__":
             print("Error with the coordinates conversions!!!")
             print("dev_dec = " + str(dev_dec))
             print("dev_cart = " + str(dev_cart))
-    
-    print("Tests done!")
+    '''
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--dir', type=str, default='./')
+    parser.add_argument('--grid', type=float, default='2.5')
+    parser.add_argument('--en', type=float, default='0.7')
+    parser.add_argument('--encum', type=float, default='0.6')
+    parser.add_argument('--pval', type=float, default='0.99')
+
+    args = parser.parse_args()
+
+    myDir = args.dir
+    overlap = [2,2,2]
+
+    dataset = pd.read_csv(myDir + "Tracksters_gTh" + str(args.grid) + "_pTh"  + str(args.pval) + "_en" + str(args.en) + "_encm" + str(args.encum) + "_overlap" + str(overlap[0]) + str(overlap[1]) + str(overlap[2]) +".csv")
+
+    trk = dataset[dataset['TrkId']==0]
+    lcs_XYZ = trk.loc[:,['x', 'y', 'z']].to_numpy() 
+    lcs_en = trk.loc[:,'energy'].to_numpy()
+
+    print(trk)
+    print('\n')
+    linepts, eigenvector = line_fit(lcs_XYZ, lcs_en)
+    print(linepts)
+    print('\n')
+    print(eigenvector)
+    print(np.linalg.norm(eigenvector))
+    print("First Test done!")

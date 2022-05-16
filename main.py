@@ -43,9 +43,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--dir', type=str, default='./')
-    parser.add_argument('--grid', type=float, default='2.')
-    parser.add_argument('--en', type=float, default='0.6')
-    parser.add_argument('--encum', type=float, default='0.5')
+    parser.add_argument('--grid', type=float, default='2.5')
+    parser.add_argument('--en', type=float, default='0.7')
+    parser.add_argument('--encum', type=float, default='0.6')
     parser.add_argument('--pval', type=float, default='0.99')
 
     args = parser.parse_args()
@@ -68,9 +68,11 @@ if __name__ == "__main__":
 
     # Choose maximum dimension of grover_data to be fed Grover
     grover_size = [7,4,4]
+    # grover_size = [3,4,5]
 
     # Define overlap parameter
-    overlap = [2,2,2]
+    # overlap = [2,2,2]
+    overlap = [1,1,1]
     if(overlap[0]>=grover_size[0] or overlap[1]>=grover_size[1] or overlap[2]>=grover_size[2]):
         print('Overlap cannot be larger than grover_size!')
         sys.exit()
@@ -178,7 +180,7 @@ if __name__ == "__main__":
     for i in range(int((len(cubesX)-grover_size[0])/(grover_size[0]-overlap[0])+1)):
         for j in range(int((len(cubesY)-grover_size[1])/(grover_size[1]-overlap[1])+1)):
             for k in range(int((len(cubesZ)-grover_size[2])/(grover_size[2]-overlap[2])+1)):
-                # i,j,k = [2,37,7]
+                i,j,k = [17,3,9]
                 counterTrkr = 0 # Counter tracksters to remove
                 print('[i,j,k] = ', i,j,k)
                 print('**** i value % = ', (i+1)/int((len(cubesX)-grover_size[0])/(grover_size[0]-overlap[0])+1))
@@ -305,12 +307,13 @@ if __name__ == "__main__":
                     #     print('\n*** Distance conditions NOT satisfied! No more Tracksters to be found! ***')
                     # print("distances of last point: ",dist_tmp)
 
-                # break
-        #     break
-        # break            
+                break
+            break
+        break            
     # print('\n **** Grover routines ended ****\n')
 
-    allTrksFoundQuantumly.to_csv("Tracksters_gTh" + str(gridThreshold) + "_pTh"  + str(pThreshold) + "_en" + str(enThreshold) + "_encm" + str(enThresholdCumulative) + "_overlap" + str(overlap[0]) + str(overlap[1]) + str(overlap[2]) +".csv")
+    # allTrksFoundQuantumly.to_csv("Tracksters_gTh" + str(gridThreshold) + "_pTh"  + str(pThreshold) + "_en" + str(enThreshold) + "_encm" + str(enThresholdCumulative) + "_overlap" + str(overlap[0]) + str(overlap[1]) + str(overlap[2]) +".csv")
+    allTrksFoundQuantumly.to_csv("long_Tracksters_gTh" + str(gridThreshold) + "_pTh"  + str(pThreshold) + "_en" + str(enThreshold) + "_encm" + str(enThresholdCumulative) + "_overlap" + str(overlap[0]) + str(overlap[1]) + str(overlap[2]) +".csv")
 
 
     fig = plt.figure(figsize = (30,25))
@@ -348,5 +351,5 @@ if __name__ == "__main__":
                 ranges[2][1] = np.max(z_lcs)
 
     plots3DwithProjection(fig, xs, ys, zs, ranges)
-    plt.savefig("Tracksters_gTh" + str(gridThreshold) + "_pTh"  + str(pThreshold) + "_en" + str(enThreshold) + "_encm" + str(enThresholdCumulative) + "_overlap" + str(overlap[0]) + str(overlap[1]) + str(overlap[2]) +".png")
+    plt.savefig("long_Tracksters_gTh" + str(gridThreshold) + "_pTh"  + str(pThreshold) + "_en" + str(enThreshold) + "_encm" + str(enThresholdCumulative) + "_overlap" + str(overlap[0]) + str(overlap[1]) + str(overlap[2]) +".png")
     print('Grover search ended succesfully! ')
